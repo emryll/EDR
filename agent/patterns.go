@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -207,7 +208,7 @@ func (p *Process) CheckRegBehaviorPatterns() Result {
 }*/
 
 // handle all cleaning of telemetry history, concurrently w/ worker pool of 10 goroutines
-func HistoryCleaner(wg *sync.WaitGroup, terminate chan struct{}) {
+func HistoryCleaner(wg *sync.WaitGroup, ctx context.Context) {
 	defer wg.Done()
 	cleanup := time.NewTicker(time.Duration(TM_HISTORY_CLEANUP_INTERVAL) * time.Second)
 	defer cleanup.Stop()
@@ -217,12 +218,12 @@ func HistoryCleaner(wg *sync.WaitGroup, terminate chan struct{}) {
 	go func() {
 		for i := 0; i < numWorkers; i++ {
 			wg.Add(1)
-			go HistoryCleanup(wg, tasks)
+			go HistoryCleanup(wg, tasks, ctx)
 		}
 	}()
 	for {
 		select {
-		case <-terminate:
+		case <-ctx.Done():
 			close(tasks)
 			return
 		case <-cleanup.C:
@@ -234,15 +235,18 @@ func HistoryCleaner(wg *sync.WaitGroup, terminate chan struct{}) {
 }
 
 // worker function for history cleanup mechanism
-func HistoryCleanup(wg *sync.WaitGroup, tasks chan *Process) {
+func HistoryCleanup(wg *sync.WaitGroup, tasks chan *Process, ctx context.Context) {
 	defer wg.Done()
 	for {
 		select {
+		case <-ctx.Done():
+			return
 		case task := <-tasks:
 			threshold := time.Now().Unix() - TM_HISTORY_CLEANUP_INTERVAL
 			// fn is a copy. in the future make these entries *ApiCallData
 			for _, fn := range task.APICalls {
 				newHistory := Cleanup(fn.History, threshold) // utils.go
+				//fmt.Printf("[debug] Cleaned up %d items in %s!%s history\n", len(fn.History)-len(newHistory), fn.DllName, fn.FuncName)
 				fn.History = newHistory
 				task.ApiMu.Lock()
 				task.APICalls[fn.FuncName] = fn
