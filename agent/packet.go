@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/binary"
 	"fmt"
 	"strconv"
 	"strings"
@@ -121,4 +122,28 @@ func GetParameterType(ptype string, isArray bool) uint32 {
 		return uint32(PARAMETER_BOOLEAN)
 	}
 	return 0
+}
+
+func PrintParameters(params map[string]Parameter) {
+	for _, param := range params {
+		fmt.Printf("\t%s: ", param.Name)
+		switch param.Type {
+		case PARAMETER_ANSISTRING:
+			fmt.Printf("%s\n", ReadAnsiString(param.Buffer))
+		case PARAMETER_UINT32:
+			fmt.Printf("%d\n", binary.LittleEndian.Uint32(param.Buffer))
+		case PARAMETER_BOOLEAN:
+			if binary.LittleEndian.Uint32(param.Buffer) == 0 {
+				fmt.Printf("FALSE\n")
+			} else {
+				fmt.Printf("TRUE\n")
+			}
+		case PARAMETER_POINTER:
+			fmt.Printf("0x%x\n", binary.LittleEndian.Uint64(param.Buffer))
+		default:
+			fmt.Printf("unknown type (%d)\n", param.Type)
+		}
+		//fmt.Println("[debug] parameter buffer dump:")
+		//DumpPacket(param.Buffer)
+	}
 }

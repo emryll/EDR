@@ -1,9 +1,11 @@
 package main
 
 import (
+	"encoding/binary"
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/fatih/color"
@@ -126,7 +128,8 @@ func (header TelemetryHeader) Log(dataBuf []byte) {
 		processes[int(header.Pid)].PushToApiCallHistory(apiCall)
 		mu.Unlock()
 
-		white.Log("\t[TID: %d] %s!%s:\n", apiCall.ThreadId, apiCall.DllName, apiCall.FuncName)
+		printMu.Lock()
+		white.Log("* [TID: %d] %s!%s:\n", apiCall.ThreadId, apiCall.DllName, apiCall.FuncName)
 		//* Log the args
 		for i, arg := range apiCall.Args {
 			switch arg.Type {
@@ -149,8 +152,10 @@ func (header TelemetryHeader) Log(dataBuf []byte) {
 				}
 			}
 		}
+		printMu.Unlock()
 
 	case TM_TYPE_TEXT_INTEGRITY: //TODO: maybe only log hash mismatches
+		printMu.Lock()
 		white.Log("\n\nPID: %d, new .text integrity check\n", header.Pid)
 
 		//* Parse and log result of check
@@ -168,8 +173,138 @@ func (header TelemetryHeader) Log(dataBuf []byte) {
 				}
 			}()
 		}
-		//TODO: case TM_TYPE_FILE_EVENT:
-		//TODO: case TM_TYPE_REG_EVENT:
+		printMu.Unlock()
+	case TM_TYPE_IAT_INTEGRITY:
+		printMu.Lock()
+		white.Log("\n\nPID: %d, new IAT integrity check\n", header.Pid)
+
+		//* Parse and log result of check
+		iatMismatches := ParseIatTelemetryPacket(dataBuf)
+		red.Log("%d", len(iatMismatches))
+		white.Log(" Mismatches in IAT! Highly suspicious!\n")
+		for _, mismatch := range iatMismatches {
+			white.Log("\t%s points to", mismatch.FuncName)
+			red.Log(" 0x%X\n", mismatch.Address)
+		}
+
+		printMu.Unlock()
+	case TM_TYPE_GENERIC_ALERT:
+		size := binary.LittleEndian.Uint64(dataBuf[0:8])
+		description := ReadAnsiStringValue(dataBuf[8:size])
+		printMu.Lock()
+		red.Log("\n[ALERT]")
+		white.Log(" %s\n", description)
+		printMu.Unlock()
+
+		//TODO: instead add some universal tag to communicate termination
+		if strings.HasPrefix(strings.ToLower(description), "dll injection") {
+			if strings.HasSuffix(VERSION, "demo") {
+				time.Sleep(time.Duration(300) * time.Millisecond)
+			}
+			TerminateProcess(int(header.Pid))
+			delete(processes, int(header.Pid))
+			//TODO delete process from tracking list
+			white.Log("[i] Terminated process %d\n", header.Pid)
+		}
+	case TM_TYPE_FILE_EVENT:
+		//? first comes etw header, it tells you how many parameters come after it
+		var (
+			event  FileEventData
+			cursor = 0
+		)
+
+		event.Action = binary.LittleEndian.Uint32(dataBuf[0:4])
+		cursor += 4
+		event.TargetPath = ReadAnsiString(dataBuf[cursor : cursor+260])
+		cursor += 260
+		attributeCount := binary.LittleEndian.Uint32(dataBuf[cursor : cursor+4])
+		cursor += 4 + 4 // 4 byte padding, because size_t has to align with 8
+		totalAttributeSize := binary.LittleEndian.Uint64(dataBuf[cursor : cursor+8])
+		cursor += 8
+
+		//fmt.Printf("attributeCount: %d\n\ttotalAttributeSize: %d\n", attributeCount, totalAttributeSize)
+		if attributeCount > 0 && totalAttributeSize > 0 {
+			event.Parameters = make(map[string]Parameter)
+			params := ParseParameters(dataBuf[cursor:])
+			if params == nil {
+				return
+			}
+			for _, p := range params {
+				event.Parameters[p.Name] = p
+			}
+		}
+
+		fmt.Printf("\n%s\n\n", stars)
+		//* debug test print
+		switch event.Action {
+		case FILE_CREATE:
+			color.Green("[+] File CREATE event on %s", event.TargetPath)
+		case FILE_READ:
+			color.Green("[+] File READ event on %s", event.TargetPath)
+		case FILE_WRITE:
+			color.Green("[+] File WRITE event on %s", event.TargetPath)
+		case FILE_DELETE:
+			color.Green("[+] File DELETE event on %s", event.TargetPath)
+		default:
+			color.Green("[+] UNKNOWN file event (%d) on %s", event.Action, event.TargetPath)
+		}
+		if len(event.Parameters) == 0 {
+			fmt.Println("\tNo parameters.")
+		} else {
+			PrintParameters(event.Parameters)
+		}
+		fmt.Printf("\n%s\n", stars)
+
+	case TM_TYPE_REG_EVENT:
+		//? first comes etw header, it tells you how many parameters come after it
+		var (
+			event  RegEventData
+			cursor = 0
+		)
+
+		event.Action = binary.LittleEndian.Uint32(dataBuf[0:4])
+		cursor += 4
+		event.Path = ReadAnsiString(dataBuf[cursor : cursor+260])
+		cursor += 260
+		attributeCount := binary.LittleEndian.Uint32(dataBuf[cursor : cursor+4])
+		cursor += 4 + 4
+		totalAttributeSize := binary.LittleEndian.Uint64(dataBuf[cursor : cursor+8])
+		cursor += 8
+
+		if attributeCount <= 0 || totalAttributeSize <= 0 || int(totalAttributeSize) > len(dataBuf) {
+			return
+		}
+		event.Parameters = make(map[string]Parameter)
+		params := ParseParameters(dataBuf[cursor:])
+		if params == nil {
+			return
+		}
+		for _, p := range params {
+			event.Parameters[p.Name] = p
+		}
+
+		fmt.Printf("\n%s\n\n", stars)
+		//* debug test print
+		switch event.Action {
+		case REG_CREATE_KEY:
+			color.Green("[+] Registry CREATE KEY event on %s", event.Path)
+			//fmt.Println("[debug] memory layout of data packet (excludes TELEMETRY_HEADER):")
+			//DumpPacket(dataBuf)
+
+			//fmt.Printf("[debug] memory layout of just the parameters\n")
+			//DumpPacket(dataBuf[FILE_EVENT_SIZE:])
+
+		case REG_OPEN_KEY:
+			color.Green("[+] Registry OPEN KEY event on %s", event.Path)
+		case REG_DELETE_KEY:
+			color.Green("[+] Registry DELETE KEY event on %s", event.Path)
+		case REG_SET_KEY_VALUE:
+			color.Green("[+] Registry SET KEY VALUE event on %s", event.Path)
+		case REG_CLOSE_KEY:
+			color.Green("[+] Registry CLOSE KEY event on %s", event.Path)
+		}
+		PrintParameters(event.Parameters)
+		fmt.Printf("\n%s\n", stars)
 	}
 	//* Add a line after the log
 	white.Log("\n")
@@ -177,7 +312,10 @@ func (header TelemetryHeader) Log(dataBuf []byte) {
 
 // Process and log results. Launch further actions or alerts if needed
 func (r Result) Log(scanName string, pid int) {
-	white.Log("\n\nGot %d total score from %s (%d matches)\n", r.TotalScore, scanName, len(r.Results))
+	printMu.Lock()
+	if r.TotalScore > 0 {
+		white.Log("\n\nGot %d total score from %s (%d matches)\n", r.TotalScore, scanName, len(r.Results))
+	}
 
 	_, pidExists := processes[pid]
 	if pidExists {
@@ -226,6 +364,7 @@ func (r Result) Log(scanName string, pid int) {
 		}
 	}
 	white.Log("\n\n")
+	printMu.Unlock()
 }
 
 // Initialize a color that can be used with custom log method
