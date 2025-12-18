@@ -6,6 +6,8 @@
 #include <stdio.h>
 #include <yara_x.h>
 
+#define DLL_NAME "hook.dll"
+
 typedef struct {
     void* address;
     size_t size;
@@ -16,6 +18,13 @@ typedef struct {
     size_t         numSections;
     MEMORY_REGION* sections;
 } REMOTE_MODULE;
+
+// thread scan returns weird threads with this structure
+typedef struct {
+    DWORD tid;
+    DWORD pid;
+    LPVOID startAddress;
+} THREAD_ENTRY;
 
 //FILE* OpenLog(char*);
 //void Log(const char*, ...);

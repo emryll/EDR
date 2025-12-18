@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -24,9 +25,9 @@ var (
 	logger      *log.Logger
 	logMu       sync.Mutex
 	writer      *DualWriter
-	terminate   = make(chan struct{})    // close this to terminate all goroutines
 	processes   = make(map[int]*Process) // key: pid
-	mu          sync.Mutex
+	mu          sync.Mutex               // is this necessary? i dont think so
+	printMu     sync.Mutex               // this makes sure a print is not interrupted
 	scannerMu   sync.Mutex
 	scanner     *yara.Scanner
 	rules       *yara.Rules
@@ -36,7 +37,7 @@ var (
 )
 
 // TODO: test
-func PeriodicScanScheduler(wg *sync.WaitGroup, terminate chan struct{}) {
+func PeriodicScanScheduler(wg *sync.WaitGroup, ctx context.Context) {
 	defer wg.Done()
 	memoryScan := time.NewTicker(time.Duration(MEMORYSCAN_INTERVAL) * time.Second)
 	heartbeat := time.NewTicker(time.Duration(HEARTBEAT_INTERVAL) * time.Second)
@@ -56,7 +57,7 @@ func PeriodicScanScheduler(wg *sync.WaitGroup, terminate chan struct{}) {
 
 	for {
 		select {
-		case <-terminate:
+		case <-ctx.Done():
 			close(tasks)
 			close(priorityTasks)
 			scanner.Destroy()
@@ -88,11 +89,11 @@ func PeriodicScanScheduler(wg *sync.WaitGroup, terminate chan struct{}) {
 	}
 }
 
-func PeriodicScanHandler(wg *sync.WaitGroup, priorityTasks chan Scan, tasks chan Scan, terminate chan struct{}) {
+func PeriodicScanHandler(wg *sync.WaitGroup, priorityTasks chan Scan, tasks chan Scan, ctx context.Context) {
 	defer wg.Done()
 	for {
 		select {
-		case <-terminate:
+		case <-ctx.Done():
 			return
 		case scan := <-priorityTasks: // prioritize unsigned processes
 			switch scan.Type {
@@ -124,6 +125,8 @@ func PeriodicScanHandler(wg *sync.WaitGroup, priorityTasks chan Scan, tasks chan
 
 func main() {
 	var wg sync.WaitGroup
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	err := InitializeLogger(logName)
 	if err != nil {
@@ -134,12 +137,12 @@ func main() {
 
 	defer logFile.Close()
 	//wg.Add(5)
-	wg.Add(3)
-	go heartbeatListener(&wg, terminate)
-	go telemetryListener(&wg, terminate)
+	wg.Add(4)
+	go heartbeatListener(&wg, ctx)
+	go telemetryListener(&wg, ctx)
 	//go commandListener(&wg) //TODO add terminate
-	go PeriodicScanScheduler(&wg, terminate)
-	//go HistoryCleaner(&wg, terminate)
+	go PeriodicScanScheduler(&wg, ctx)
+	go HistoryCleaner(&wg, ctx)
 
 	//? should it be allowed to run without yara ruleset or api patterns?
 
@@ -158,12 +161,8 @@ func main() {
 		white.Log("\tError: %v\n", err)
 	}
 
-	apiPatterns, err = LoadApiPatternsFromDisk("")
-	if err != nil {
-		red.Log("\n[!] Failed to load")
-	}
-	//TODO: load file patterns
-	//TODO: load reg patterns
+	//TODO: load v3 patterns
+
 	// setup for static engine for reading magic bytes
 	SortMagic()
 
@@ -171,10 +170,8 @@ func main() {
 	PrintBanner(DEFAULT_BANNER)
 Cli:
 	for {
-		select {
-		case <-terminate:
+		if ctx.Err() != nil { // shutdown signal
 			break Cli
-		default:
 		}
 		// main loop code here
 		g := color.New(color.FgGreen, color.Bold)
@@ -186,7 +183,7 @@ Cli:
 			continue
 		}
 		tokens := strings.Fields(command)
-		exit := cli_parse(tokens)
+		exit := cli_parse(tokens, cancel)
 		if exit {
 			break Cli
 		}

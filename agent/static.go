@@ -231,6 +231,7 @@ func StaticScan[T int | string](target T, print bool) {
 
 	//* portray results
 	stars := "***************************************************************************"
+	printMu.Lock()
 	white.Log("\n%s\n", stars)
 	if len(yaraResults) > 0 {
 		//* less important yara rules
@@ -346,6 +347,7 @@ func StaticScan[T int | string](target T, print bool) {
 		red.Log("/100, looks ")
 		red.Log("very suspicious!\n")
 	}
+	printMu.Unlock()
 }
 
 func LookupFileHash(path string, authKey string) (HashLookup, error) {

@@ -21,6 +21,7 @@ import (
 	"unicode/utf16"
 	"unsafe"
 
+	"github.com/Binject/debug/pe"
 	"golang.org/x/sys/windows"
 )
 
@@ -650,4 +651,93 @@ func DumpBytes(data []byte) {
 		fmt.Printf("%02X ", b)
 	}
 	fmt.Printf("\n")
+}
+
+func IsImportedByPe(dllPath string, exePath string) (bool, error) {
+	dll, err := pe.Open(dllPath)
+	if err != nil {
+		return false, fmt.Errorf("failed to open %s: %v", dllPath, err)
+	}
+	defer dll.Close()
+
+	exe, err := pe.Open(exePath)
+	if err != nil {
+		return false, fmt.Errorf("failed to open %s: %v", exePath, err)
+	}
+	defer exe.Close()
+
+	imports, err := exe.ImportedLibraries()
+	if err != nil {
+		return false, fmt.Errorf("failed to get imports of %s: %v", exePath, err)
+	}
+
+	dllImported := false
+	//* first make sure that the DLL is imported
+	for _, lib := range imports {
+		if strings.EqualFold(lib, filepath.Base(dllPath)) {
+			dllImported = true
+			break
+		}
+	}
+	return dllImported, nil
+}
+
+func FnCountImportedByPe(dllPath string, exePath string) (int, error) {
+	dll, err := pe.Open(dllPath)
+	if err != nil {
+		return 0, fmt.Errorf("failed to open %s: %v", dllPath, err)
+	}
+	defer dll.Close()
+
+	exe, err := pe.Open(exePath)
+	if err != nil {
+		return 0, fmt.Errorf("failed to open %s: %v", exePath, err)
+	}
+	defer exe.Close()
+
+	imports, err := exe.ImportedLibraries()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get imports of %s: %v", exePath, err)
+	}
+
+	dllImported := false
+	//* first make sure that the DLL is imported
+	for _, lib := range imports {
+		if strings.EqualFold(lib, filepath.Base(dllPath)) {
+			dllImported = true
+			break
+		}
+	}
+
+	if !dllImported {
+		return 0, nil
+	}
+
+	exports, err := dll.Exports()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get exports of %s: %v", dllPath, err)
+	}
+	exportMap := make(map[string]bool)
+	for _, fn := range exports {
+		exportMap[fn.Name] = true
+	}
+
+	symbols, err := exe.ImportedSymbols()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get symbols imported by %s: %v", exePath, err)
+	}
+
+	importedFuncs := 0
+	for _, s := range symbols {
+		// symbols are in the format: "symbol:dll"
+		parts := strings.Split(s, ":")
+		if len(parts) > 1 && !strings.EqualFold(parts[1], filepath.Base(dllPath)) {
+			continue // wrong lib
+		}
+
+		if exportMap[parts[0]] {
+			importedFuncs++
+		}
+	}
+	return importedFuncs, nil
 }

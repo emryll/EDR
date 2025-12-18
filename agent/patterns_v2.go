@@ -1,16 +1,18 @@
 package main
 
 import (
+	"encoding/binary"
 	"path/filepath"
-
-	"honnef.co/go/tools/pattern"
 )
 
 // This is the function you should call to trigger a behavioral scan for a process.
 // It will go through each pattern and check if it matches telemetry history.
-// Before running this, BehaviorPatterns global list must be loaded (should happen at start-up) 
+// Before running this, BehaviorPatterns global list must be loaded (should happen at start-up)
 func (p *Process) CheckBehaviorPatterns() Result {
-	var matches Result
+	var ( 
+		matches Result
+		isFirstInTimeline = true
+	)
 Patterns:
 	for _, pattern := range BehaviorPatterns {
 		//* first check universal conditions
@@ -20,9 +22,8 @@ Patterns:
 
 		var (
 			startTimes []int64
-			bonus = 0
+			bonus      = 0
 		)
-
 		//* check each component
 		for i, component := range pattern.Components {
 			result := component.IsMatch(p)
@@ -34,23 +35,25 @@ Patterns:
 				continue Patterns
 			}
 
-			if !component.TimeMatters || pattern.TimeRange == 0 {
+			if !component.IsTimeSensitive() || pattern.TimeRange == 0 {
 				// if it was a bonus component, add to score
 				bonus += component.GetBonus() // this will be 0 if its required
 				continue
 			}
 
-			// on the first one, save the times to create a timeline
-			if i == 0 {
+			// on the first timesensitive component, save the times to create a timeline
+			if isFirstInTimeline {
 				startTimes = append(startTimes, result.TimeStamps)
+				isFirstInTimeline = false
 			} else {
+				//* check that the component aligns with the possible timelines
 				startTimes = CheckTimeline(startTimes, result.TimeStamps, pattern.TimeRange)
 				if len(startTimes) == 0 {
 					continue Patterns
 				}
 			}
 			// if its not a bonus component, bonus will be 0.
-			bonus += component.Bonus
+			bonus += component.GetBonus()
 		}
 
 		// since it got this far, it is a match
@@ -92,7 +95,7 @@ Options:
 	return result
 }
 
-// Method to implement Component interface. 
+// Method to implement Component interface.
 // This tells if the component matched, and returns the timestamp options.
 func (c FileComponent) IsMatch(p *Process) ComponentMatch {
 	var result ComponentMatch
@@ -100,13 +103,35 @@ func (c FileComponent) IsMatch(p *Process) ComponentMatch {
 		return result // false
 	}
 
-	var PathFound bool
-	if len(c.)
+	//TODO: check if any files are in pathoptions
+	var dirFound bool
+	if len(c.DirOptions) == 0 {
+		dirFound = true
+	}
+	// one of these must be found
+	for _, path := range c.DirOptions {
+		if _, exists := p.FileEventDir[path]; exists {
+			pathFound = true
+			break
+		}
+	}
+	if !pathFound {
+		return ComponentMatch{Match: false}
+	}
+
+	//TODO: allow names like "*.txt"
+	for _, name := range c.NameOptions {
+		if _, exists := p.FileEventDir[filepath.Dir(name)][filepath.Base(name)]
+	}
 }
 
-// Method to implement Component interface. 
+// Method to implement Component interface.
 // This tells if the component matched, and returns the timestamp options.
 func (c RegComponent) IsMatch(p *Process) ComponentMatch {
+	var result ComponentMatch
+	if c.UniversalOverride != nil && !c.UniversalOverride.Check(p) {
+		return result // false
+	}
 	//TODO:
 }
 
@@ -160,7 +185,10 @@ func (u UniversalConditions) Check(p *Process) bool {
 	return true
 }
 
-// Method to implement Condition interface. Returns true if it passed filter
+// Method to implement Condition interface. Returns true if it passed filter.
+// There are two different cases, whether its part of universal conditions or not:
+// If this is part of universal filters, event must be nil, and the process in question will be host.
+// If this is a component, event must not be nil, and the process in question will be the one being operated on.
 func (f ProcessFilter) Check(p *Process, event interface{}) bool {
 	//? Process structure provides everything necessary
 	var nameFound bool
@@ -290,7 +318,7 @@ func (f AllocFilter) Check(p *Process, event interface{}) bool {
 	//? memory allocation apis should save protection, allocation type and size
 	apiCall := event.(ApiCallData)
 	var (
-		size 	 	 uint64
+		size         uint64
 		sizeFound    bool
 		allocType    uint32
 		typeFound    bool
@@ -321,7 +349,7 @@ func (f AllocFilter) Check(p *Process, event interface{}) bool {
 			isCorrectProtection = true
 		}
 		for _, p := range f.Protection {
-			if protect & p != 0 {
+			if protect&p != 0 {
 				isCorrectProtection = true
 				break
 			}
@@ -329,15 +357,15 @@ func (f AllocFilter) Check(p *Process, event interface{}) bool {
 		if !isCorrectProtection {
 			return false
 		}
-	
+
 		for _, p := range f.ProtectionNot {
-			if protect & p != 0 {
+			if protect&p != 0 {
 				return false
 			}
 		}
 	}
 
-	if typeFound && f.IsImageSection && (allocType & MEM_IMAGE) != 0 {
+	if typeFound && f.IsImageSection && (allocType&MEM_IMAGE) != 0 {
 		return false
 	}
 }
@@ -347,8 +375,8 @@ func (f ProtectFilter) Check(p *Process, event interface{}) bool {
 	//? memory protection apis should save old protection and new protection
 	apiCall := event.(ApiCallData)
 	var (
-		oldFound bool
-		newFound bool
+		oldFound   bool
+		newFound   bool
 		oldProtect uint32
 		newProtect uint32
 	)
@@ -367,7 +395,7 @@ func (f ProtectFilter) Check(p *Process, event interface{}) bool {
 	if oldFound {
 		var found bool
 		for _, p := range f.OldProtection {
-			if protect & p != 0 {
+			if protect&p != 0 {
 				found = true
 				break
 			}
@@ -381,7 +409,7 @@ func (f ProtectFilter) Check(p *Process, event interface{}) bool {
 	if newFound {
 		var found bool
 		for _, p := range f.NewProtection {
-			if protect & p != 0 {
+			if protect&p != 0 {
 				found = true
 				break
 			}
@@ -398,9 +426,9 @@ func (f HandleFilter) Check(p *Process, event interface{}) bool {
 	//? only desired access is needed, but likely also target pid
 	apiCall := event.(ApiCallData)
 	var (
-		pathFound bool
-		accessFound bool
-		targetPath string
+		pathFound     bool
+		accessFound   bool
+		targetPath    string
 		desiredAccess uint32
 	)
 
@@ -430,7 +458,7 @@ func (f HandleFilter) Check(p *Process, event interface{}) bool {
 			found = true
 		}
 		for _, path := range f.TargetPath {
-			
+
 		}
 		if !found {
 			return false
@@ -453,13 +481,13 @@ func CheckTimeline(startTimes []int64, timeOptions []int64, timeRange int64) []i
 Timelines:
 	for i, start := range startTimes {
 		for _, time := range timeOptions {
-			if start - time <= timeRange {
+			if start-time <= timeRange {
 				// this one is valid
 				continue Timelines
 			}
 		}
 		// no option fits the timeline
 		startTimes = RemoveSliceMember(startTimes, i)
-	}		
+	}
 	return startTimes
 }

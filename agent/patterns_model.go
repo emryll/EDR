@@ -3,7 +3,7 @@ package main
 //*==============================================================================================+
 //*   			Experimental v2 behavioral pattern design								         |
 //?==============================================================================================+
-//?   These behavioral patterns are like a timeline of behavior, represented in JSON.		     |
+//?   These behavioral patterns are like a timeline of behavior, represented in YAML.		     |
 //?   This timeline consists of components, which describe an arbitrary telemetry event.         |
 //?   																						     |
 //?   This design is aimed to be as flexible and extensible as possible. It should be able       |
@@ -31,11 +31,13 @@ type BehaviorPattern struct {
 	TimeRange           int
 	UniversalConditions *UniversalConditions
 	Components          []Component
+	Timeline            string
 }
 
 type Component interface {
 	GetDefaultName() string            // fallback naming if pattern is missing a name and description
 	IsMatch(p *Process) ComponentMatch // does this behavior appear in telemetry history (and conditions are ok)
+	IsTimeSensitive() bool
 	IsRequired() bool
 	GetBonus() int
 }
@@ -44,6 +46,9 @@ type ComponentMatch struct {
 	Match      bool
 	TimeStamps []int64
 }
+
+//TODO: Api, file and reg components can maybe be combined into one
+// tbh probably cleaner this way because the methods have different logic anyways
 
 // This describes one event in the timeline. An api call specifically.
 type ApiComponent struct {
@@ -57,8 +62,6 @@ type ApiComponent struct {
 // This describes one event in the timeline. A file system event specifically.
 type FileComponent struct {
 	Action            uint32
-	PathOptions       []string
-	NameOptions       []string
 	Conditions        []Condition
 	UniversalOverride *UniversalConditions
 	TimeMatters       bool
@@ -68,8 +71,20 @@ type FileComponent struct {
 // This describes one event in the timeline. A registry event specifically.
 type RegComponent struct {
 	Action            uint32
-	PathOptions       []string
+	Name              []string
+	NameNot           []string
+	DirOptions        []string
+	DirNot            []string
 	KeyOptions        []string
+	Conditions        []Condition
+	UniversalOverride *UniversalConditions
+	TimeMatters       bool
+	Bonus             int
+}
+
+type HandleComponent struct {
+	Type              uint32
+	Access            []uint32
 	Conditions        []Condition
 	UniversalOverride *UniversalConditions
 	TimeMatters       bool
@@ -79,11 +94,12 @@ type RegComponent struct {
 // this is a generic interface to describe a condition on a component.
 // It allow you to define more complex and precise patterns
 type Condition interface {
-	// method needs access to required data
 	Check(p *Process, event interface{}) bool
+	GetParameter(name string) Parameter
 }
 
 // "target_process" / "process" conditions
+// This should only be for components operating on a process (remote alloc, process creation, etc.)
 type ProcessFilter struct {
 	Name       []string
 	NameNot    []string
@@ -95,16 +111,15 @@ type ProcessFilter struct {
 }
 
 // "target_file" condition
+// Describes a file being operated on => requires component to be file operation
 type FileFilter struct {
-	Action     uint32
-	Name       []string
-	NameNot    []string
-	Path       []string
-	PathNot    []string
-	Extension  []string
-	ExtNot     []string
-	IsSigned   bool
-	MagicMatch bool
+	PathNot       []string
+	Extension     []string
+	ExtNot        []string
+	IsSigned      bool
+	IsUserPath    bool // user writeable path, no elevated privileges needed
+	HasScaryMagic bool // magic of an executable file format
+	MagicMatch    bool
 }
 
 type UniversalConditions struct {
@@ -119,23 +134,28 @@ type UniversalConditions struct {
 	UserNot      []string
 }
 
-// conditions for memory allocation
+// conditions for memory allocation only
 type AllocFilter struct {
 	SizeMin        int64
 	SizeMax        int64
 	Protection     []uint32 // enums
 	ProtectionNot  []uint32
+	AllocType      []uint32
+	AllocTypeNot   []uint32
+	TargetPath     []uint32
+	TargetPathNot  []uint32
 	IsImageSection bool
+	IsRemoteAlloc  bool
 }
 
-// for changing memory page protections
+// conditions for changing memory page protections
 type ProtectFilter struct {
 	OldProtection []uint32
 	NewProtection []uint32
 }
 
 // for opening handle to thread or process
-type HandleFilter struct {
+type PTHandleFilter struct {
 	TargetPath       []string
 	TargetPathNot    []string
 	DesiredAccess    []uint32 // enums
@@ -147,6 +167,9 @@ type PTCreationFilter struct {
 	CreationFlags    []uint32 // enums
 	CreationFlagsNot []uint32 // enums
 }
+
+//TODO: registry filter
+// target path, target
 
 // simple getter methods for Component interface
 func (c ApiComponent) GetBonus() int {

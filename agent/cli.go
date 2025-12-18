@@ -4,6 +4,7 @@ package main
 import "C"
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -34,7 +35,7 @@ func cli_help() {
 // You can launch demo, inject, query info or start scan
 // This function takes the input, split into words.
 // Return value tells if program should exit. True means exit, false means continue
-func cli_parse(tokens []string) bool {
+func cli_parse(tokens []string, cancel context.CancelFunc) bool {
 	switch strings.ToLower(tokens[0]) {
 	case "help":
 		cli_help()
@@ -49,8 +50,7 @@ func cli_parse(tokens []string) bool {
 		printLog = true
 
 	case "exit", "quit", "q":
-		// trigger terminate signal for all routines
-		close(terminate)
+		cancel() // trigger terminate signal for all routines
 		return true
 
 	case "scan", "s":
