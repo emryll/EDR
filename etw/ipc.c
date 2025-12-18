@@ -2,12 +2,13 @@
 #include <stdio.h>
 #include "etw.h"
 
-HANDLE hPipe;
+HANDLE hCmd = INVALID_HANDLE_VALUE;
+HANDLE hEtw = INVALID_HANDLE_VALUE;
 
 void ShutdownWaiter() {
     while(1) {
         ETW_CMD packet;
-        BOOL ok = ReadFull(hPipe, &packet, sizeof(packet));
+        BOOL ok = ReadFull(hCmd, &packet, sizeof(packet));
         if (!ok) {
             printf("[debug] failed to read from pipe, error: %d\n", GetLastError());
             break;
@@ -26,12 +27,14 @@ void ShutdownWaiter() {
             }
             
             free(SessionProperties);
-            DisconnectNamedPipe(hPipe);
-            CloseHandle(hPipe);
+            CloseHandle(hEtw);
+            CloseHandle(hCmd);
             return;
-        case ETW_CMD_PLIST_ADD:
+        // c cases arent a new scope but just a "go-to", so you have to add these braces
+        // to make it its own scope, alternative is to declare processList above.
+        case ETW_CMD_PLIST_ADD: {
             DWORD* processList = (DWORD*)malloc(packet.dataSize);    
-            ok = ReadFull(hPipe, processList, packet.dataSize);
+            ok = ReadFull(hCmd, processList, packet.dataSize);
             if (!ok) {
                 printf("[debug] Failed to read tracked process list from pipe, error: %d\n", GetLastError());
                 break;
@@ -42,9 +45,10 @@ void ShutdownWaiter() {
             }
             free(processList);
             break;
-        case ETW_CMD_PLIST_REMOVE:
+        }
+        case ETW_CMD_PLIST_REMOVE: {
             DWORD* processList = (DWORD*)malloc(packet.dataSize);    
-            ok = ReadFull(hPipe, processList, packet.dataSize);
+            ok = ReadFull(hCmd, processList, packet.dataSize);
             if (!ok) {
                 printf("[debug] Failed to read tracked process list from pipe, error: %d\n", GetLastError());
                 break;
@@ -56,37 +60,57 @@ void ShutdownWaiter() {
             free(processList);
             break;
         }
+        }
     }
 }
 
-HANDLE InitializeComms() {
+// 
+BOOL InitializeComms() {
     //TODO: add ACL to pipe comms. elevated processes only.
-    // create duplex pipe. max 1 instance. pipe reads/writes block until finished.
-    hPipe = CreateNamedPipe(
-        PIPE_NAME, PIPE_ACCESS_DUPLEX | FILE_FLAG_FIRST_PIPE_INSTANCE,
-        PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT,
-        1, 64*1024, 64*1024, 0, NULL);
 
-    if (hPipe == INVALID_HANDLE_VALUE) {
-        printf("[debug] failed to create pipe, error: %d\n", GetLastError());
-        return NULL;
+    hEtw = CreateFile(
+        ETW_PIPE_NAME, GENERIC_WRITE,
+        0, NULL, OPEN_EXISTING, 0, NULL);
+
+    hCmd = CreateFile(
+        COMMANDS_PIPE_NAME, GENERIC_READ,
+        0, NULL, OPEN_EXISTING, 0, NULL);
+
+    // it will keep trying until it works.    
+    while (hCmd == INVALID_HANDLE_VALUE || hEtw == INVALID_HANDLE_VALUE) {
+        Sleep(500);
+        if (hEtw == INVALID_HANDLE_VALUE) {
+            printf("Failed to connect to cmd pipe, error: %d\n", GetLastError());
+            hEtw = CreateFile(
+                ETW_PIPE_NAME, GENERIC_WRITE,
+                0, NULL, OPEN_EXISTING, 0, NULL);
+        }
+        if (hCmd == INVALID_HANDLE_VALUE) {
+            printf("Failed to connect to ETW pipe, error: %d\n", GetLastError());
+            hCmd = CreateFile(
+                COMMANDS_PIPE_NAME, GENERIC_READ,
+                0, NULL, OPEN_EXISTING, 0, NULL);
+        }
     }
+
+    printf("[debug] Both pipes connected\n");
 
     // create thread to receive shutdown signal
     HANDLE WaiterThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)ShutdownWaiter, NULL, 0, NULL);
-    if (WaiterThread == INVALID_HANDLE_VALUE) {
-        DisconnectNamedPipe(hPipe);
-        CloseHandle(hPipe);
-        hPipe = NULL;
-        return NULL;
+    if (WaiterThread == NULL) {
+        CloseHandle(hCmd);
+        CloseHandle(hEtw);
+        hEtw = NULL; hCmd = NULL;
+        return FALSE;
     }
+    return TRUE;
 }
 
 BOOL ReadFull(HANDLE pipe, void* buffer, DWORD size) {
     DWORD totalRead = 0;
     while (totalRead < size) {
         DWORD bytesRead = 0;
-        if (!ReadFile(pipe, buffer + totalRead, size - totalRead, &bytesRead, NULL)) {
+        if (!ReadFile(pipe, (LPVOID)((ULONG_PTR)buffer + (ULONG_PTR)totalRead), size - totalRead, &bytesRead, NULL)) {
             if (GetLastError() == ERROR_MORE_DATA) {
                 totalRead += bytesRead;
                 continue;

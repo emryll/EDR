@@ -73,7 +73,6 @@ char* ConvertUnicodeStringToAnsi(UNICODE_STRING* ustr) {
     nullTmp[wcharCount] = L'\0';
 
     char* ansi = ConvertWideToAnsi(nullTmp);
-    printf("[debug] us -> ansi, resulting length: %d\n", strlen(ansi));
     free(nullTmp);
     return ansi;
 }
@@ -314,15 +313,69 @@ BOOL ParseFileEventParameter(PEVENT_RECORD event, ULONG index, PTRACE_EVENT_INFO
                 free(param);
                 break;
             }
-            case TDH_INTYPE_UINT32:
-                wprintf(L"\t%ls: %d (not sent)\n", propDesc.PropertyName, *(UINT32*)buffer);
+            case TDH_INTYPE_UINT32: {
+                wprintf(L"\t%ls: %d\n", propDesc.PropertyName, *(UINT32*)buffer);
+                char* name = ConvertWideToAnsi((WCHAR*)propDesc.PropertyName);
+                size_t paramHeadSize;
+                BYTE* param = CreateParameter(name, 0, PARAMETER_DWORD, &paramHeadSize);
+                free(name);
+                if (param == NULL) {
+                    free(param);
+                    free(buffer);
+                    return FALSE;
+                }
+//                printf("[debug] after creating parameter header\n");
+
+                //* add the parameter to end of packet
+                (*packetSize) += paramHeadSize + sizeof(DWORD);
+                *packet = (BYTE*)realloc(*packet, (*packetSize));
+                if (*packet == NULL) {
+                    printf("[debug] failed to realloc for size of %dB\n", (*packetSize));
+                    free(param);
+                    free(buffer);
+                    return FALSE;
+                }
+                size_t offset = sizeof(FILE_EVENT) + etwHeader->totalAttributesSize;
+                memcpy(*packet + offset, param, paramHeadSize);
+                memcpy(*packet + offset + paramHeadSize, buffer, sizeof(DWORD));
+                etwHeader->totalAttributesSize += paramHeadSize + sizeof(DWORD);
+                etwHeader->attributeCount++;
+                free(param);
                 break;
+            }
             case TDH_INTYPE_UINT16:
                 wprintf(L"\t%ls: %d (not sent)\n", propDesc.PropertyName, *(UINT16*)buffer);
                 break;
-            case TDH_INTYPE_BOOLEAN:
-                wprintf(L"\t%ls: %s (not sent)\n", propDesc.PropertyName, *(BOOL*)buffer ? "TRUE" : "FALSE");
+            case TDH_INTYPE_BOOLEAN: {
+                wprintf(L"\t%ls: %s\n", propDesc.PropertyName, buffer ? "TRUE" : "FALSE");
+                char* name = ConvertWideToAnsi((WCHAR*)propDesc.PropertyName);
+                size_t paramHeadSize;
+                BYTE* param = CreateParameter(name, 0, PARAMETER_BOOLEAN, &paramHeadSize);
+                free(name);
+                if (param == NULL) {
+                    free(param);
+                    free(buffer);
+                    return FALSE;
+                }
+//                printf("[debug] after creating parameter header\n");
+
+                //* add the parameter to end of packet
+                (*packetSize) += paramHeadSize + sizeof(BOOL);
+                *packet = (BYTE*)realloc(*packet, (*packetSize));
+                if (*packet == NULL) {
+                    printf("[debug] failed to realloc for size of %dB\n", (*packetSize));
+                    free(param);
+                    free(buffer);
+                    return FALSE;
+                }
+                size_t offset = sizeof(FILE_EVENT) + etwHeader->totalAttributesSize;
+                memcpy(*packet + offset, param, paramHeadSize);
+                memcpy(*packet + offset + paramHeadSize, buffer, sizeof(BOOL));
+                etwHeader->totalAttributesSize += paramHeadSize + sizeof(BOOL);
+                etwHeader->attributeCount++;
+                free(param);
                 break;
+            }
             case TDH_INTYPE_ANSISTRING: {
                 wprintf(L"\t%ls: %s\n", propDesc.PropertyName, (char*)buffer);
                 char* name = ConvertWideToAnsi((WCHAR*)propDesc.PropertyName);
@@ -511,15 +564,70 @@ BOOL ParseRegEventParameter(PEVENT_RECORD event, ULONG index, PTRACE_EVENT_INFO 
                 free(param);
                 break;
             }
-            case TDH_INTYPE_UINT32:
+            case TDH_INTYPE_UINT32: {
                 wprintf(L"\t%ls: %d (not sent)\n", propDesc.PropertyName, *(UINT32*)buffer);
+                char* name = ConvertWideToAnsi((WCHAR*)propDesc.PropertyName);
+                size_t paramHeadSize;
+                BYTE* param = CreateParameter(name, 0, PARAMETER_DWORD, &paramHeadSize);
+                free(name);
+                if (param == NULL) {
+                    free(param);
+                    free(buffer);
+                    return FALSE;
+                }
+//                printf("[debug] after creating parameter header\n");
+
+                //* add the parameter to end of packet
+                (*packetSize) += paramHeadSize + sizeof(DWORD);
+                *packet = (BYTE*)realloc(*packet, (*packetSize));
+                if (*packet == NULL) {
+                    printf("[debug] failed to realloc for size of %dB\n", (*packetSize));
+                    free(param);
+                    free(buffer);
+                    return FALSE;
+                }
+                size_t offset = sizeof(FILE_EVENT) + etwHeader->totalAttributesSize;
+                memcpy(*packet + offset, param, paramHeadSize);
+                memcpy(*packet + offset + paramHeadSize, buffer, sizeof(DWORD));
+                etwHeader->totalAttributesSize += paramHeadSize + sizeof(DWORD);
+                etwHeader->attributeCount++;
+                free(param);
                 break;
+
+            }
             case TDH_INTYPE_UINT16:
                 wprintf(L"\t%ls: %d (not sent)\n", propDesc.PropertyName, *(UINT16*)buffer);
                 break;
-            case TDH_INTYPE_BOOLEAN:
+            case TDH_INTYPE_BOOLEAN: {
                 wprintf(L"\t%ls: %s (not sent)\n", propDesc.PropertyName, *(BOOL*)buffer ? "TRUE" : "FALSE");
+                char* name = ConvertWideToAnsi((WCHAR*)propDesc.PropertyName);
+                size_t paramHeadSize;
+                BYTE* param = CreateParameter(name, 0, PARAMETER_BOOLEAN, &paramHeadSize);
+                free(name);
+                if (param == NULL) {
+                    free(param);
+                    free(buffer);
+                    return FALSE;
+                }
+//                printf("[debug] after creating parameter header\n");
+
+                //* add the parameter to end of packet
+                (*packetSize) += paramHeadSize + sizeof(BOOL);
+                *packet = (BYTE*)realloc(*packet, (*packetSize));
+                if (*packet == NULL) {
+                    printf("[debug] failed to realloc for size of %dB\n", (*packetSize));
+                    free(param);
+                    free(buffer);
+                    return FALSE;
+                }
+                size_t offset = sizeof(FILE_EVENT) + etwHeader->totalAttributesSize;
+                memcpy(*packet + offset, param, paramHeadSize);
+                memcpy(*packet + offset + paramHeadSize, buffer, sizeof(BOOL));
+                etwHeader->totalAttributesSize += paramHeadSize + sizeof(BOOL);
+                etwHeader->attributeCount++;
+                free(param);
                 break;
+            }
             case TDH_INTYPE_ANSISTRING: {
                 wprintf(L"\t%ls: %s\n", propDesc.PropertyName, (char*)buffer);
                 char* name = ConvertWideToAnsi((WCHAR*)propDesc.PropertyName);
@@ -551,16 +659,6 @@ BOOL ParseRegEventParameter(PEVENT_RECORD event, ULONG index, PTRACE_EVENT_INFO 
     return TRUE;
 }
 
-// This is like a header preceding every parameter, directly after this comes the value
-PARAMETER CreateEventParameterHead(LPCSTR name, DWORD type, size_t size) {
-    PARAMETER param = {0};
-    strncpy(param.name, name, sizeof(param.name)-1);
-    param.name[sizeof(param.name) -1] = '\0';
-    param.type = type;
-    param.size = size;
-    return param;
-}
-
 size_t GetTelemetryPacketSize(DWORD type, size_t dynamicSize) {
     switch (type) {
         case TM_TYPE_ETW_FILE:
@@ -588,7 +686,7 @@ int SendEtwTelemetryPacket(PEVENT_RECORD event, BYTE* dataPacket, size_t dataSiz
     memcpy(packet + sizeof(header), dataPacket, dataSize);
 
     DWORD bytesWritten;
-    BOOL writeOk = WriteFile(hPipe, packet, sizeof(header) + dataSize, &bytesWritten, NULL);
+    BOOL writeOk = WriteFile(hEtw, packet, sizeof(header) + dataSize, &bytesWritten, NULL);
 
     free(dataPacket);
     free(packet);
@@ -598,7 +696,15 @@ int SendEtwTelemetryPacket(PEVENT_RECORD event, BYTE* dataPacket, size_t dataSiz
     }
     return GetLastError();
 }
-
+/*
+// create entire parameter packet, head and data
+BYTE* CreateParameter(char* name, DWORD size, DWORD type, size_t* dataSize) {
+    //TODO: allocate buffer
+    //TODO: create head
+    //TODO: copy head to buffer,
+    //TODO: copy data after head
+}
+*/
 BYTE* CreateParameter(char* name, DWORD size, DWORD type, size_t* dataSize) {
     if (size > 50000) return NULL;
     // data size will also work as a counter for how much memory to allocate
@@ -640,7 +746,7 @@ BYTE* CreateParameter(char* name, DWORD size, DWORD type, size_t* dataSize) {
     } else {
         snprintf((char*)packet, (*dataSize), "%s/%d:%c", name, size, symbol);
     }
-    printf("\n[debug] parameter packet: %s\n", (char*)packet);
+    //printf("\n[debug] parameter packet: %s\n", (char*)packet);
     return packet;
 }
 

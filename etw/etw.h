@@ -5,11 +5,13 @@
 #include <evntrace.h>
 #include <tdh.h>
 
-#define PIPE_NAME "\\\\.\\pipe\\em_etw"
+#define ETW_PIPE_NAME "\\\\.\\pipe\\em_etw"
+#define COMMANDS_PIPE_NAME "\\\\.\\pipe\\em_cmd"
 #define SESSION_NAME "testETWsession"
 #define MAX_CMD_DATA 32
 
-extern HANDLE hPipe;
+extern HANDLE hCmd;
+extern HANDLE hEtw;
 extern TRACEHANDLE SessionHandle;
 extern TRACEHANDLE traceHandle;
 extern EVENT_TRACE_PROPERTIES* SessionProperties;
