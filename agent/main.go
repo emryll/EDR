@@ -14,6 +14,9 @@ import (
 	"github.com/fatih/color"
 )
 
+//? If you're wondering why some comments in the codebase start with a symbol like this one;
+//* It's because I'm using a "better comments" plugin, where these symbols color the comment a certain color.
+
 var (
 	white       *Color
 	green       *Color
@@ -52,7 +55,7 @@ func PeriodicScanScheduler(wg *sync.WaitGroup, ctx context.Context) {
 	const numWorkers = 10
 	for w := 0; w < numWorkers; w++ {
 		wg.Add(1)
-		go PeriodicScanHandler(wg, priorityTasks, tasks, terminate)
+		go PeriodicScanHandler(wg, priorityTasks, tasks, ctx)
 	}
 
 	for {
