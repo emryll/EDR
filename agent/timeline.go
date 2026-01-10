@@ -147,7 +147,8 @@ func ReduceConditionalBranch(orBlock []string, components map[string]*ComponentR
 	return result
 }
 
-// returns boolean result and bonus score.
+// This is the outer function for solving a simple linear timeline.
+// It returns the boolean result (did it match) and the accumulated bonus score.
 func EvaluateFlatTimeline(logic []string, components map[string]*ComponentResult) (bool, int) {
 	// its possible components were reduced into a single component in previous steps
 	if len(logic) < 3 {
@@ -249,12 +250,11 @@ func ReduceFlatBlock(logic []string, components map[string]*ComponentResult) Com
 	//* now add the edge timestamps and return positive result (match)
 	result.Exists = true
 	result.FirstTimestamps = append(result.FirstTimestamps, components[logic[0]].FirstTimestamps...)
-	result.FirstTimestamps = append(result.FirstTimestamps, components[logic[0]].LastTimestamps...)
-	result.LastTimestamps = append(result.LastTimestamps, components[logic[len(logic)-1]].FirstTimestamps...)
 	result.LastTimestamps = append(result.LastTimestamps, components[logic[len(logic)-1]].LastTimestamps...)
 	return result
 }
 
+// Replace the defined block with a reduced result in the timeline, and update the components with the reduced one.
 func ReplaceWithReduced(logic []string, start int, end int, reduced ComponentResult, components map[string]*ComponentResult) []string {
 	tmpName := DerivePlaceholderName(logic[start : end+1])
 	components[tmpName] = &reduced
