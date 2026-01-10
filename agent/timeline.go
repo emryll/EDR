@@ -42,18 +42,20 @@ func EvaluateTimeline(timeline string, components map[string]*ComponentResult) (
 }
 
 // This function is responsible for checking/solving the time-insensitive components (+).
-// At this point components have already been individually checked, and early exits have been made.
-// It can be assumed that these exist, and the timeline doesnt matter for these, therefore we can just remove them.
 func EvaluateTimelessComponents(logic []string, components map[string]*ComponentResult) ([]string, int) {
 	// find and remove them from the start of timeline. Accumulate bonus if any
 	var bonus int
 	for logic[1] == "+" {
-		bonus += components[logic[0]].Bonus
+		if components[logic[0]].Exists {
+			bonus += components[logic[0]].Bonus
+		}
 		logic = logic[2:]
 	}
 	// now same thing backwards
 	for logic[len(logic)-2] == "+" {
-		bonus += components[logic[len(logic)-1]].Bonus
+		if components[logic[0]].Exists {
+			bonus += components[logic[len(logic)-1]].Bonus
+		}
 		logic = logic[:len(logic)-2]
 	}
 	return logic, bonus
@@ -78,9 +80,10 @@ func EvaluateParantheses(logic []string, components map[string]*ComponentResult)
 
 // This function is responsible for solving (getting rid of) conditional branches.
 // It will return the altered timeline string and make the appropriate changes to the components map.
-func EvaluateConditionalBranches(logic []string, components map[string]*ComponentResult) []string {
+func EvaluateConditionalBranches(logic []string, components map[string]*ComponentResult) ([]string, bool) {
 	var (
 		insideBranch bool
+		exit         bool // shadow variable bug fucks up timeline if you use ":="
 		end          int
 	)
 	for i := len(logic) - 1; i >= 0; i -= 2 {
@@ -88,16 +91,19 @@ func EvaluateConditionalBranches(logic []string, components map[string]*Componen
 		if logic[i][len(logic[i])-1] == ')' {
 			start := GetStartOfParantheses(logic, i)
 			if start != -1 {
-				logic = checkOrBlockToLeft(logic, start, i, &insideBranch, &end, components)
+				logic, exit = checkOrBlockToLeft(logic, start, i, &insideBranch, &end, components)
+				if exit {
+					return logic, exit
+				}
 				i = start // jump over the parantheses
 				continue
 			}
 		}
 		// this is if no parantheses were encountered/skipped. they are treated differently, because if it
 		// starts with parantheses and after it comes "or", you havent saved the real beginning of the or-block
-		logic = checkOrBlockToLeft(logic, i, i, &insideBranch, &end, components)
+		logic, exit = checkOrBlockToLeft(logic, i, i, &insideBranch, &end, components)
 	}
-	return logic
+	return logic, false
 }
 
 // inner function for one iteration of a walk to find complete or-block. returns altered logic and early exit signal (true means exit, no match)
@@ -189,6 +195,9 @@ func ReduceFlatBlock(logic []string, components map[string]*ComponentResult) Com
 				return ComponentResult{Exists: false, Required: true}
 			}
 			// remove non-existent optional component from the timeline
+			if len(logic) >= i+1 { // avoid out of bounds on last one
+				break
+			}
 			logic = RemoveFromSlice(logic, i, 2)
 			continue
 		}
@@ -214,12 +223,21 @@ func ReduceFlatBlock(logic []string, components map[string]*ComponentResult) Com
 				}
 			}
 			// no valid continuation from previous component was found, so this timeline is not possible.
+			// First remove corresponding invalid timelines from the other edge, in case of reduced components.
+			for j := len(comp.LastTimestamps) - 1; j >= 0; j-- {
+				if comp.LastTimestamps[j] <= comp.FirstTimestamps[n] {
+					components[logic[i]].LastTimestamps = RemoveSliceMember(components[logic[i]].LastTimestamps, j)
+				}
+			}
 			components[logic[i]].FirstTimestamps = RemoveSliceMember(components[logic[i]].FirstTimestamps, n)
 		}
 
 		if !validTimelineFound {
 			if comp.Required {
 				return ComponentResult{Exists: false, Required: true}
+			}
+			if len(logic) >= i+1 { // avoid out of bounds on last one
+				break
 			}
 			logic = RemoveFromSlice(logic, i, 2)
 			continue

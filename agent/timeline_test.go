@@ -1,39 +1,48 @@
 package main
 
 import (
+	"fmt"
 	"testing"
+
+	"github.com/fatih/color"
 )
 
 func TestTimelineEvaluation(t *testing.T) {
 	var (
 		count int
-		stars = "************************************************************************************"
+		red   = color.New(color.FgRed)
+		green = color.New(color.FgGreen)
+		stars = "***********************************************************************************************************"
 	)
 	tests := CreateTimelineTests()
 	for i, test := range tests {
-		t.Logf("\n%s\n\tTest case %d: %s\n%s\n\n", stars, i, test.Name, stars)
+		fmt.Printf("\n%s\n\t\tTest case %d: %s\n%s\n\n", stars, i+1, test.Name, stars)
+		fmt.Printf("\ttimeline: %s\n", test.Timeline)
 		match, bonus := EvaluateTimeline(test.Timeline, test.Components)
 		var fail bool
 		if match != test.ExpectedMatch {
 			fail = true
-			t.Logf("\n[FAIL] \"%s\" unit test failed. Got ", test.Name)
+			red.Printf("[FAIL]")
+			fmt.Printf(" \"%s\" unit test failed. Got ", test.Name)
 			if match {
-				t.Logf("match, but was expecting no match.\n")
+				fmt.Printf("match, but was expecting no match.\n")
 			} else {
-				t.Logf("no match, but was expecting match.\n")
+				fmt.Printf("no match, but was expecting match.\n")
 			}
 		}
 		if bonus != test.ExpectedBonus {
 			fail = true
-			t.Logf("\n[FAIL] \"%s\" unit test failed. Got %d bonus, but was expecting %d bonus.", test.Name, bonus, test.ExpectedBonus)
+			red.Printf("[FAIL]")
+			fmt.Printf(" \"%s\" unit test failed. Got %d bonus, but was expecting %d bonus.", test.Name, bonus, test.ExpectedBonus)
 		}
 
 		if !fail {
-			t.Logf("[SUCCESS] \"%s\" unit test was successful!\n", test.Name)
+			green.Printf("[SUCCESS]")
+			fmt.Printf(" \"%s\" unit test was successful!\n", test.Name)
 			count++
 		}
 	}
-	t.Logf("[i] Passed %d/%d tests.\n", count, len(tests))
+	fmt.Printf("\n\n%s\n\t\t[*] Passed %d/%d tests.\n", stars, count, len(tests))
 }
 
 type Test struct {
@@ -244,20 +253,89 @@ func CreateTestTimeline(option int) Test {
 		}
 		return test
 	case 6:
-		test := Test{ //TODO
+		test := Test{
 			Name:          "Timeline with invalid optional component",
-			Timeline:      "",
+			Timeline:      "c1 -> c2 -> c3 -> c4", // c2 invalid
 			Components:    make(map[string]*ComponentResult),
 			ExpectedMatch: true,
 			ExpectedBonus: 0,
 		}
+		test.Components["c1"] = &ComponentResult{
+			Exists:          true,
+			Required:        true,
+			FirstTimestamps: []int64{1275, 2590, 12842},
+		}
+		test.Components["c2"] = &ComponentResult{
+			Exists:          true,
+			Required:        false,
+			FirstTimestamps: []int64{123, 420},
+			Bonus:           20,
+		}
+		test.Components["c3"] = &ComponentResult{
+			Exists:          true,
+			Required:        true,
+			FirstTimestamps: []int64{579, 11002, 4820, 2200},
+		}
+		test.Components["c4"] = &ComponentResult{
+			Exists:          true,
+			Required:        true,
+			FirstTimestamps: []int64{1870, 12800, 4000},
+		}
 		return test
 	case 7:
-		test := Test{ //TODO
+		test := Test{
 			Name:          "Complex timeline",
-			Timeline:      "c1 -> c2 or (c3 -> c4) -> c5 or c6 -> c7",
+			Timeline:      "c0 + c00 + c1 -> c2 or (c3 -> c4) -> c5 or c6 -> c7",
 			Components:    make(map[string]*ComponentResult),
 			ExpectedMatch: true,
+			ExpectedBonus: 20,
+		}
+		test.Components["c0"] = &ComponentResult{
+			Exists:          true,
+			Required:        false,
+			Bonus:           20,
+			FirstTimestamps: []int64{1},
+		}
+		test.Components["c00"] = &ComponentResult{
+			Exists:   false,
+			Required: false,
+			Bonus:    10,
+		}
+		test.Components["c1"] = &ComponentResult{
+			Exists:          true,
+			Required:        true,
+			FirstTimestamps: []int64{1275, 2590, 12842},
+		}
+		test.Components["c2"] = &ComponentResult{ // not a match
+			Exists:          true,
+			Required:        true,
+			FirstTimestamps: []int64{579, 420},
+		}
+		test.Components["c3"] = &ComponentResult{
+			Exists:          true,
+			Required:        true,
+			FirstTimestamps: []int64{421, 1892, 2890},
+		}
+		test.Components["c4"] = &ComponentResult{
+			Exists:          true,
+			Required:        true,
+			FirstTimestamps: []int64{500, 2000, 18900},
+		}
+		test.Components["c5"] = &ComponentResult{
+			Exists:          true,
+			Required:        true,
+			FirstTimestamps: []int64{600, 4000},
+		}
+		test.Components["c6"] = &ComponentResult{
+			Exists:          true,
+			Required:        true,
+			FirstTimestamps: []int64{3000},
+		}
+		test.Components["c7"] = &ComponentResult{
+			Exists:          true,
+			Required:        false,
+			FirstTimestamps: []int64{1000}, // not a match
+			Bonus:           5,
 		}
 		return test
 	}
