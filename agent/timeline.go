@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 )
 
@@ -29,10 +30,13 @@ func EvaluateTimeline(timeline string, components map[string]*ComponentResult) (
 		return components[tokens[0]].Exists, components[tokens[0]].Bonus
 	}
 
-	var firstBonus int // timeless components
-	tokens, firstBonus = EvaluateTimelessComponents(tokens, components)
+	tokens, firstBonus := EvaluateTimelessComponents(tokens, components)
 	tokens = EvaluateParantheses(tokens, components)
-	tokens = EvaluateConditionalBranches(tokens, components)
+	tokens, exit := EvaluateConditionalBranches(tokens, components)
+	//? this early exit implementation is kinda ugly... any way to make it cleaner?
+	if exit { // conditional didnt match, early exit
+		return false, 0
+	}
 	result, bonus := EvaluateFlatTimeline(tokens, components)
 	return result, bonus + firstBonus
 }
@@ -53,6 +57,23 @@ func EvaluateTimelessComponents(logic []string, components map[string]*Component
 		logic = logic[:len(logic)-2]
 	}
 	return logic, bonus
+}
+
+// no nested parantheses allowed in this version.
+func EvaluateParantheses(logic []string, components map[string]*ComponentResult) []string {
+	// find all parantheses
+	var end int // this saves the end of current parantheses. iterating backwards because items are removed
+	for i := len(logic) - 1; i >= 0; i-- {
+		// it can be assumed timeline syntax is valid because its checked before its loaded
+		if logic[i][len(logic[i])-1] == ')' {
+			end = i
+		}
+		if logic[i][0] == '(' {
+			reduced := ReduceFlatBlock(logic[i:end+1], components)
+			logic = ReplaceWithReduced(logic, i, end, reduced, components)
+		}
+	}
+	return logic
 }
 
 // This function is responsible for solving (getting rid of) conditional branches.
@@ -79,8 +100,8 @@ func EvaluateConditionalBranches(logic []string, components map[string]*Componen
 	return logic
 }
 
-// inner function for one iteration of a walk to find complete or-block.
-func checkOrBlockToLeft(logic []string, index int, begin int, insideBranch *bool, end *int, components map[string]*ComponentResult) []string {
+// inner function for one iteration of a walk to find complete or-block. returns altered logic and early exit signal (true means exit, no match)
+func checkOrBlockToLeft(logic []string, index int, begin int, insideBranch *bool, end *int, components map[string]*ComponentResult) ([]string, bool) {
 	if index > 0 && strings.ToLower(logic[index-1]) == "or" {
 		if !*insideBranch {
 			*insideBranch = true
@@ -90,8 +111,11 @@ func checkOrBlockToLeft(logic []string, index int, begin int, insideBranch *bool
 		*insideBranch = false
 		reduced := ReduceConditionalBranch(logic[index:(*end)+1], components)
 		logic = ReplaceWithReduced(logic, index, *end, reduced, components)
+		if !reduced.Exists {
+			return logic, true
+		}
 	}
-	return logic
+	return logic, false
 }
 
 // This is the inner part of evaluating conditional branches. This function will take a single conditional block,
@@ -157,7 +181,7 @@ func ReduceFlatBlock(logic []string, components map[string]*ComponentResult) Com
 	}
 
 	// iterate through the rest of components, checking if previous one has a valid timeline for it.
-	for i := 2; i < len(logic); { //TODO: "a -> b" will skip and return true because 3 is not < 3. WHAT IS THE NEED FOR i+1 < len(logic)????
+	for i := 2; i < len(logic); {
 		comp := components[logic[i]]
 		// start by checking if it exists
 		if !comp.Exists {
@@ -314,4 +338,17 @@ func GetStartOfParantheses(tokens []string, index int) int {
 		}
 	}
 	return index
+}
+
+// print a word-split string array as a single string. head can be used for a message before it
+func PrintTokens(tokens []string, head string) {
+	if head == "" {
+		fmt.Printf("[debug]")
+	} else {
+		fmt.Printf("%s", head)
+	}
+	for _, str := range tokens {
+		fmt.Printf(" %s", str)
+	}
+	fmt.Printf("\n")
 }
