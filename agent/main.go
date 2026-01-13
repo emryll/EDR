@@ -17,26 +17,25 @@ import (
 //? If you're wondering why some comments in the codebase start with a symbol like this one;
 //* It's because I'm using a "better comments" plugin, where these symbols color the comment a certain color.
 
-var (
-	white       *Color
-	green       *Color
-	yellow      *Color
-	red         *Color
-	printLog    = true
-	logName     = "agent.log"
-	logFile     *os.File
-	logger      *log.Logger
-	logMu       sync.Mutex
-	writer      *DualWriter
-	processes   = make(map[int]*Process) // key: pid
-	mu          sync.Mutex               // is this necessary? i dont think so
-	printMu     sync.Mutex               // this makes sure a print is not interrupted
-	scannerMu   sync.Mutex
-	scanner     *yara.Scanner
-	rules       *yara.Rules
-	malapi      map[string]MalApi
-	apiPatterns []ApiPattern
-	frPatterns  []FRPattern // patterns for file system and registry events
+var ( // all global variables belong here
+	white            *Color
+	green            *Color
+	yellow           *Color
+	red              *Color
+	printLog         = true
+	logName          = "agent.log"
+	logFile          *os.File
+	logger           *log.Logger
+	logMu            sync.Mutex
+	writer           *DualWriter
+	processes        = make(map[int]*Process) // key: pid
+	mu               sync.Mutex               // is this necessary? i dont think so
+	printMu          sync.Mutex               // this makes sure a print is not interrupted
+	scannerMu        sync.Mutex
+	scanner          *yara.Scanner
+	rules            *yara.Rules
+	malapi           map[string]MalApi
+	BehaviorPatterns []BehaviorPattern
 )
 
 // TODO: test
