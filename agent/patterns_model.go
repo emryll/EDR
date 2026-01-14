@@ -35,7 +35,8 @@ type BehaviorPattern struct {
 }
 
 type Component interface {
-	GetDefaultName() string            // fallback naming if pattern is missing a name and description
+	GetDefaultName() string // fallback naming if pattern is missing a name and description
+	GetGroup()
 	IsMatch(p *Process) ComponentMatch // does this behavior appear in telemetry history (and conditions are ok)
 	IsTimeSensitive() bool
 	IsRequired() bool
@@ -47,8 +48,11 @@ type ComponentMatch struct {
 	TimeStamps []int64
 }
 
-//TODO: Api, file and reg components can maybe be combined into one
-// tbh probably cleaner this way because the methods have different logic anyways
+// this may be extended. Currently it's for condition checks.
+type Event interface {
+	GetEventType() int
+	GetParameter(name string) Parameter
+}
 
 // This describes one event in the timeline. An api call specifically.
 type ApiComponent struct {
@@ -94,8 +98,37 @@ type HandleComponent struct {
 // this is a generic interface to describe a condition on a component.
 // It allow you to define more complex and precise patterns
 type Condition interface {
-	Check(p *Process, event interface{}) bool
+	Check(p *Process, event Event) bool
 	GetParameter(name string) Parameter
+}
+
+// condition set for generic 32-bit flags
+type GenericFlags struct {
+	Flags    []uint32 // flags
+	FlagsNot []uint32 // flags_not
+}
+
+type GenericAccess struct {
+	Access    []uint32 // access
+	AccessNot []uint32 // access_not
+}
+
+type GenericThread struct {
+}
+
+type ThreadCreationFilter struct {
+	Flags           []uint32 // flags
+	FlagsNot        []uint32 // flags_not
+	CreateSuspended bool     // create_suspended. could be flag or bool with NtCreateThread
+}
+
+// parent spoofing is not covered here, because it's an in-built mechanism, not reliant on patterns
+type ProcessCreationFilter struct {
+	Flags     []uint32
+	FlagsNot  []uint32
+	Target    []string
+	TargetNot []string
+	TokenUsed bool // token_used. signifies a token was specified.
 }
 
 // "target_process" / "process" conditions
@@ -152,6 +185,17 @@ type AllocFilter struct {
 type ProtectFilter struct {
 	OldProtection []uint32
 	NewProtection []uint32
+}
+
+// specifically for GetProcAddress
+type GetFnFilter struct {
+	Function    []string
+	FunctionNot []string
+}
+
+type GetModuleFilter struct {
+	Module    []string
+	ModuleNot []string
 }
 
 // for opening handle to thread or process
