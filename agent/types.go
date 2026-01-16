@@ -24,8 +24,8 @@ type Process struct {
 	APICalls map[string]ApiCallData // key: api call name
 	// to make behavioral patterns more flexible, file events are organized into directories,
 	// so this will point to a directory map, which has all the files. key is the filename
-	FileEventDir map[string]map[string]FileEventData // key: directory path; inner: filename
-	RegEvents    map[string]RegEventData             // key: name of reg key
+	FileEvents FileTelemetryCatalog
+	RegEvents  map[string]RegEventData // key: name of reg key
 	// these are the matched patterns that make up the total score
 	PatternMatches map[string]*StdResult // key: name of pattern
 	LastHeartbeat  int64                 // telemetry dll heartbeat
@@ -178,7 +178,7 @@ type ApiCallData struct {
 	DllName    string
 	FuncName   string
 	TimeStamp  int64
-	ArgCount   uint32
+	ArgCount   uint32 //unnecessary, no?
 	Parameters map[string]Parameter
 	History    []ApiCallData // sorted by timestamp
 }
@@ -203,28 +203,53 @@ type IatIntegrityData struct {
 	Address  uint64
 }
 
-type FileEventData struct {
+type FileTelemetryCatalog struct {
+	FilePathTree   map[string]map[string]map[int]*FileEvent // map[dir]map[filename]map[action]
+	FileActionTree map[int][]*FileEvent                     // search by action
+}
+
+type FileEvent struct {
 	Path      string
 	Action    uint32
 	TimeStamp int64
-	Data      uintptr
-	History   []FileEventData
+  Parameters map[string]Parameter // is this needed?
+	History   []FileEvent
 }
 
-func (f FileEventData) GetTime() int64 {
+// why is this needed????
+func (f FileEvent) GetTime() int64 {
 	return f.TimeStamp
 }
 
-type RegEventData struct {
-	Path      string
-	Action    uint32
-	Value     string
-	TimeStamp int64
-	History   []RegEventData
+func (f FileEvent) GetParameter(name string) Parameter {
+  if param, exists := f.Parameters[name]; exists {
+    return param
+  }
+  if name == "FilePath" || name == "TargetPath" || name == "Path" || name == "TargetFile" {
+    param := Parameter{Type: PARAMETER_STRING, Name: name, Buffer: []byte(f.Path)}
+    param.Buffer = append(param.Buffer, '\0')
+    return param
+  }
+  return Parameter{}
 }
 
-func (r RegEventData) GetTime() int64 {
+type RegistryEvent struct {
+	Path      string
+	Action    uint32
+	TimeStamp int64
+  Parameters map[string]Parameter
+	History   []RegistryEvent
+}
+
+func (r RegistryEvent) GetTime() int64 {
 	return r.TimeStamp
+}
+
+func (r RegistryEvent) GetParameter(name string) Parameter {
+  if param, exists := f.Parameters[name]; exists {
+    return param
+  }
+  return Parameter{}
 }
 
 /*

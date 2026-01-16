@@ -36,8 +36,8 @@ type BehaviorPattern struct {
 
 type Component interface {
 	GetDefaultName() string // fallback naming if pattern is missing a name and description
-	GetGroup()
-	IsMatch(p *Process) ComponentMatch // does this behavior appear in telemetry history (and conditions are ok)
+	GetGroup() int
+	GetResult(p *Process) ComponentResult // does this behavior appear in telemetry history (and conditions are ok)
 	IsTimeSensitive() bool
 	IsRequired() bool
 	GetBonus() int
@@ -99,7 +99,6 @@ type HandleComponent struct {
 // It allow you to define more complex and precise patterns
 type Condition interface {
 	Check(p *Process, event Event) bool
-	GetParameter(name string) Parameter
 }
 
 // condition set for generic 32-bit flags
@@ -146,7 +145,10 @@ type ProcessFilter struct {
 // "target_file" condition
 // Describes a file being operated on => requires component to be file operation
 type FileFilter struct {
+	Path          []string
 	PathNot       []string
+	Dir           []string
+	DirNot        []string
 	Extension     []string
 	ExtNot        []string
 	IsSigned      bool
@@ -193,7 +195,8 @@ type GetFnFilter struct {
 	FunctionNot []string
 }
 
-type GetModuleFilter struct {
+// GetModuleHandle, or LoadLibrary
+type ModuleFilter struct {
 	Module    []string
 	ModuleNot []string
 }
