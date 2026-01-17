@@ -74,8 +74,8 @@ Options:
 
 // Method to implement Component interface.
 // This tells if the component matched, and returns the timestamp options.
-func (c FileComponent) IsMatch(p *Process) ComponentMatch {
-	var result ComponentMatch
+func (c FileComponent) GetResult(p *Process) *ComponentResult {
+	var result ComponentResult
 	if c.UniversalOverride != nil && !c.UniversalOverride.Check(p) {
 		return result // false
 	}
@@ -85,37 +85,49 @@ func (c FileComponent) IsMatch(p *Process) ComponentMatch {
 	// One or more of either name or dir options must be defined, this is
 	//  enforced by the syntax checker, so don't need to worry about it here.
 
-
-	//TODO: check if any files are in pathoptions
-	var dirFound bool
-	if len(c.DirOptions) == 0 {
-		dirFound = true
-	}
-
-
-	
-	//TODO: check dir options
-	//TODO: check dir not options
-	//TODO: if no name or dir is defined, search any path (iterate map...)
-
-
-
-
-	// one of these must be found
-	for _, path := range c.DirOptions {
-		if _, exists := p.FileEventDir[path]; exists {
-			pathFound = true
-			break
+	//TODO get corresponding events
+	//TODO for this you need to inspect the file filter, to see if name/dir options are defined
+	var filter FileFilter
+	for _, set := range c.Conditions {
+		if v, ok := set.(FileFilter); ok {
+			filter = v
 		}
 	}
-	if !pathFound {w
-		return ComponentMatch{Match: false}
+	//TODO if name or dir is not defined, look up events by action
+	var events []*FileEvent
+	if len(filter.Path) == 0 && len(filter.Dir) == 0 {
+		events = append(events, p.FileEvents.FileActionTree[c.Action]...)
+	} else if len(filter.Path) > 0 { // if path options are defined, dir will not be used
+		for _, path := range filter.Path {
+			dir := filepath.Dir(path)
+			// this one has one event entry for each action on that file
+			events = append(events, p.FileEvents.FilePathTree[dir][filepath.Base(path)]...)
+		}
+	} else if len(filter.Dir) > 0 {
+		for _, dir := range filter.Dir {
+			for _, event := range p.FileEvents.FilePathTree[dir] {
+				events = append(events, event...)
+			}
+		}
 	}
 
-	//TODO: allow names like "*.txt"
-	for _, name := range c.NameOptions {
-		if _, exists := p.FileEventDir[filepath.Dir(name)][filepath.Base(name)]
+Events:
+	for _, event := range events {
+		for _, condition := range c.Conditions {
+			if !condition.Check(p, event) {
+				continue Events
+			}
+		}
+		//? collect timestamps so you can check if any align in the timeline of other components
+		result.FirstTimestamps = append(result.FirstTimestamps, event.TimeStamp)
+		for _, e := range event.History {
+			result.FirstTimestamps = append(result.FirstTimestamps, e.TimeStamp)
+		}
+		result.Exists = true
+		result.Bonus = c.Bonus
+		result.Required = c.IsRequired()
 	}
+	return &result
 }
 
 // Method to implement Component interface.
@@ -126,4 +138,10 @@ func (c RegComponent) IsMatch(p *Process) ComponentMatch {
 		return result // false
 	}
 	//TODO:
+}
+
+func (p Parameter) GetValue() any {
+	switch p.Type {
+	//TODO
+	}
 }
