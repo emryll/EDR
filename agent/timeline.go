@@ -42,6 +42,7 @@ func EvaluateTimeline(timeline string, components map[string]*ComponentResult) (
 }
 
 // This function is responsible for checking/solving the time-insensitive components (+).
+// It is assumed that the timeline has already been validated, and there will be no out-of-bounds error.
 func EvaluateTimelessComponents(logic []string, components map[string]*ComponentResult) ([]string, int) {
 	// find and remove them from the start of timeline. Accumulate bonus if any
 	var bonus int
@@ -83,7 +84,7 @@ func EvaluateParantheses(logic []string, components map[string]*ComponentResult)
 func EvaluateConditionalBranches(logic []string, components map[string]*ComponentResult) ([]string, bool) {
 	var (
 		insideBranch bool
-		exit         bool // shadow variable bug fucks up timeline if you use ":="
+		exit         bool // shadow variable bug breaks timeline if you use ":="
 		end          int
 	)
 	for i := len(logic) - 1; i >= 0; i -= 2 {
@@ -102,6 +103,9 @@ func EvaluateConditionalBranches(logic []string, components map[string]*Componen
 		// this is if no parantheses were encountered/skipped. they are treated differently, because if it
 		// starts with parantheses and after it comes "or", you havent saved the real beginning of the or-block
 		logic, exit = checkOrBlockToLeft(logic, i, i, &insideBranch, &end, components)
+		if exit {
+			return logic, exit
+		}
 	}
 	return logic, false
 }
