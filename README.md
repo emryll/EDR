@@ -1,12 +1,5 @@
+<img width="750" height="150" alt="image" src="https://github.com/user-attachments/assets/3150a309-cb07-4165-ad4b-84db2fdbf00a" />
 
-  .. █████████  ██████████ ██████   █████ ██████████  █████████  █████  █████████ 
-    ███░░░░░███░░███░░░░░█░░██████ ░░███ ░░███░░░░░█ ███░░░░░███░░███  ███░░░░░███
-   ███     ░░░  ░███  █ ░  ░███░███ ░███  ░███  █ ░ ░███    ░░░  ░███ ░███    ░░░ 
-  ░███          ░██████    ░███░░███░███  ░██████   ░░█████████  ░███ ░░█████████ 
-  ░███    █████ ░███░░█    ░███ ░░██████  ░███░░█    ░░░░░░░░███ ░███  ░░░░░░░░███
-  ░░███  ░░███  ░███ ░   █ ░███  ░░█████  ░███ ░   █ ███    ░███ ░███  ███    ░███
-   ░░█████████  ██████████ █████  ░░█████ ██████████░░█████████  █████░░█████████ 
-    ░░░░░░░░░  ░░░░░░░░░░ ░░░░░    ░░░░░ ░░░░░░░░░░  ░░░░░░░░░  ░░░░░  ░░░░░░░░░  
 
 **Genesis EDR is an open-source EDR system for x64 Windows**. The project is currently in **early-development**, alpha version is scheduled to release in February/March 2026. This project serves as an **educational** tool and case-study. You can find **detailed documentation** at https://emryll.gitbook.io/byte-for-byte/genesis
 
