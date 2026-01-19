@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/binary"
 	"path/filepath"
 )
 
@@ -19,7 +18,7 @@ func (p *Process) CheckBehaviorPatterns() Result {
 		components := make(map[string]*ComponentResult)
 		for _, component := range pattern.Components {
 			// syntax checker checks validity of patterns at startup, so don't need to worry about that.
-			components[component.GetName()] = component.GetResult()
+			components[component.GetName()] = component.GetResult(p)
 			// later adding early exit here. the problem currently is conditional branches (required in conditional is not strictly required)
 		}
 
@@ -44,23 +43,24 @@ func (p *Process) CheckBehaviorPatterns() Result {
 // This tells if the component matched, and returns the timestamp options.
 func (c ApiComponent) GetResult(p *Process) *ComponentResult {
 	var result ComponentResult
+	//* 1. Check potential universal condition override
 	if c.UniversalOverride != nil && !c.UniversalOverride.Check(p) {
 		return &ComponentResult{Exists: false, Required: c.IsRequired()}
 	}
 Options:
-	//* first check if any of these apis exist in history
+	//* 2. Retrieve a list of corresponding events
 	for _, fn := range c.Options {
 		api, exists := p.APICalls[fn]
 		if !exists {
 			continue
 		}
-		//* now check that the defined conditions apply to this api
+		//* 3. Check if conditions are passed
 		for _, condition := range c.Conditions {
 			if !condition.Check(p, api) {
 				continue Options
 			}
 		}
-		//? collect timestamps so you can check if any align in the timeline of other components
+		//* 4. Collect timestamps of matches, prepare result
 		result.FirstTimestamps = append(result.FirstTimestamps, api.TimeStamp)
 		for _, a := range api.History {
 			result.FirstTimestamps = append(result.FirstTimestamps, a.TimeStamp)
@@ -76,49 +76,44 @@ Options:
 // This tells if the component matched, and returns the timestamp options.
 func (c FileComponent) GetResult(p *Process) *ComponentResult {
 	var result ComponentResult
+	//* 1. Check potential universal condition override
 	if c.UniversalOverride != nil && !c.UniversalOverride.Check(p) {
-		return result // false
+		return &result // false
 	}
-	// file events are currently stored in a map that points to a directory,
-	//  which is a map containing the files of that directory.
-	// In the future this will structure will be reworked to be recursive.
-	// One or more of either name or dir options must be defined, this is
-	//  enforced by the syntax checker, so don't need to worry about it here.
-
-	//TODO get corresponding events
-	//TODO for this you need to inspect the file filter, to see if name/dir options are defined
 	var filter FileFilter
+	// due to storage structure, need to peek at the filter to retrieve list of events
 	for _, set := range c.Conditions {
 		if v, ok := set.(FileFilter); ok {
 			filter = v
 		}
 	}
-	//TODO if name or dir is not defined, look up events by action
 	var events []*FileEvent
+	// Look at the FileTelemetryCatalog type to see how file events are stored. (types.go)
+	//* 2. Retrieve a list of corresponding events
 	if len(filter.Path) == 0 && len(filter.Dir) == 0 {
-		events = append(events, p.FileEvents.FileActionTree[c.Action]...)
+		events = append(events, p.FileEvents.FileActionTree[int(c.Action)]...)
 	} else if len(filter.Path) > 0 { // if path options are defined, dir will not be used
 		for _, path := range filter.Path {
 			dir := filepath.Dir(path)
-			// this one has one event entry for each action on that file
-			events = append(events, p.FileEvents.FilePathTree[dir][filepath.Base(path)]...)
+			events = append(events, p.FileEvents.FilePathTree[dir][filepath.Base(path)][int(c.Action)])
 		}
 	} else if len(filter.Dir) > 0 {
 		for _, dir := range filter.Dir {
-			for _, event := range p.FileEvents.FilePathTree[dir] {
-				events = append(events, event...)
+			for _, file := range p.FileEvents.FilePathTree[dir] {
+				events = append(events, file[int(c.Action)])
 			}
 		}
 	}
 
 Events:
 	for _, event := range events {
+		//* 3. Check if conditions are passed
 		for _, condition := range c.Conditions {
 			if !condition.Check(p, event) {
 				continue Events
 			}
 		}
-		//? collect timestamps so you can check if any align in the timeline of other components
+		//* 4. Collect timestamps of matches, prepare result
 		result.FirstTimestamps = append(result.FirstTimestamps, event.TimeStamp)
 		for _, e := range event.History {
 			result.FirstTimestamps = append(result.FirstTimestamps, e.TimeStamp)
@@ -130,14 +125,61 @@ Events:
 	return &result
 }
 
-// Method to implement Component interface.
-// This tells if the component matched, and returns the timestamp options.
-func (c RegComponent) IsMatch(p *Process) ComponentMatch {
-	var result ComponentMatch
+func (c RegComponent) GetResult(p *Process) *ComponentResult {
+	var result ComponentResult
+	//* 1. Check potential universal condition override
 	if c.UniversalOverride != nil && !c.UniversalOverride.Check(p) {
-		return result // false
+		return &result // false
 	}
-	//TODO:
+	//? registry events are stored by path (hive+key)
+	// need to peek at the filter to retrieve list of events
+	var filter RegistryFilter
+	for _, set := range c.Conditions {
+		if v, ok := set.(RegistryFilter); ok {
+			filter = v
+		}
+	}
+
+	var events []*RegistryEvent
+	//* 2. Retrieve a list of corresponding events
+	if len(filter.Path) == 0 {
+		events = append(events, p.RegEvents.RegActionTree[int(c.Action)]...)
+	} else {
+		for _, path := range filter.Path {
+			events = append(events, p.RegEvents.RegPathTree[path]...)
+		}
+	}
+
+Events:
+	for _, event := range events {
+		//* 3. Check if conditions are passed
+		for _, condition := range c.Conditions {
+			if !condition.Check(p, event) {
+				continue Events
+			}
+		}
+		//* 4. Collect timestamps of matches, prepare result
+		result.FirstTimestamps = append(result.FirstTimestamps, event.TimeStamp)
+		for _, e := range event.History {
+			result.FirstTimestamps = append(result.FirstTimestamps, e.TimeStamp)
+		}
+		result.Exists = true
+		result.Bonus = c.Bonus
+		result.Required = c.IsRequired()
+	}
+	return &result
+}
+
+func (c ApiComponent) GetName() string {
+	return c.Name
+}
+
+func (c FileComponent) GetName() string {
+	return c.Name
+}
+
+func (c RegComponent) GetName() string {
+	return c.Name
 }
 
 func (p Parameter) GetValue() any {
