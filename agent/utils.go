@@ -741,3 +741,11 @@ func FnCountImportedByPe(dllPath string, exePath string) (int, error) {
 	}
 	return importedFuncs, nil
 }
+
+func PushAlert(alert int, msg string, score int, pid int) {
+	red.Log("\n[ALERT] ")
+	white.Log("%s\n", msg)
+	processes[pid].ScoreMu.Lock()
+	processes[pid].TotalScore += score
+	processes[pid].ScoreMu.Unlock()
+}

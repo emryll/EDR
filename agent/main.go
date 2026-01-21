@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unsafe"
 
 	yara "github.com/VirusTotal/yara-x/go"
 	"github.com/fatih/color"
@@ -38,7 +39,6 @@ var ( // all global variables belong here
 	BehaviorPatterns []BehaviorPattern
 )
 
-// TODO: test
 func PeriodicScanScheduler(wg *sync.WaitGroup, ctx context.Context) {
 	defer wg.Done()
 	heartbeat := time.NewTicker(time.Duration(HEARTBEAT_INTERVAL) * time.Second)
@@ -117,14 +117,25 @@ func PeriodicScanHandler(wg *sync.WaitGroup, priorityTasks chan Scan, tasks chan
 				}
 			}
 		//TODO: case SCAN_HANDLESCAN:
-		//TODO: case SCAN_THREADSCAN:
 		case SCAN_THREADSCAN:
 			var count C.size_t
-			threads := C.ScanProcessThreads(uint32(scan.Pid), &count)
+			cThreads := C.ScanProcessThreads(uint32(scan.Pid), &count)
 			if count == 0 {
 				continue
 			}
-			//TODO: respond to results
+
+			threads := unsafe.Slice((*ThreadEntry)(unsafe.Pointer(cThreads)), int(count))
+			for _, thread := range threads {
+				switch thread.Reason {
+				case THREAD_ENTRY_UNBACKED_MEM:
+					PushAlert(THREAD_ENTRY_UNBACKED_MEM,
+						"Found a thread belonging to process %d with a start address pointing to unbacked executable memory!",
+						60, thread.Pid)
+				case THREAD_ENTRY_OUTSIDE_MODULE:
+					msg := fmt.Sprintf("Found a thread belonging to process %d with a start address pointing outside of any module (%p)", thread.StartAddress)
+					PushAlert(THREAD_ENTRY_OUTSIDE_MODULE, msg, thread.Pid, 50)
+				}
+			}
 		case scan := <-tasks:
 			switch scan.Type {
 			case SCAN_MEMORYSCAN:
