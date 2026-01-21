@@ -10,3 +10,15 @@ The system is seperated into various different components, each with a distinct 
 The rest of the components are purely for information that the agent can work with to make decisions. These include a **telemetry DLL**, **ETW consumer**, and a **kernel driver**
 
 A sort of **swiss-cheese model** is implemented; there are various different tests and scans that can affect the score of a process or file. The idea is that one approach alone is not going to detect all malware, but when there are many approaches taken, it is far more likely that atleast one of these layers will catch malicious behavior.
+
+## How to use
+> Currently the project is a work-in-progress. It is not yet ready for use as a whole system. _There are many functional parts at this point, so parts of the system can be tested, but you will need to know what you're doing
+
+To get started using the system, clone this repo and run the installer. To build from source, you will need C, C++, and Golang compilers and OpenSSL installed on your machine. 
+```
+git clone https://emryll/edr.git
+cd ./edr
+go run installer.go
+cd ./build
+./agent.exe
+```
