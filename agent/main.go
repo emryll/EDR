@@ -41,8 +41,10 @@ var ( // all global variables belong here
 // TODO: test
 func PeriodicScanScheduler(wg *sync.WaitGroup, ctx context.Context) {
 	defer wg.Done()
-	memoryScan := time.NewTicker(time.Duration(MEMORYSCAN_INTERVAL) * time.Second)
 	heartbeat := time.NewTicker(time.Duration(HEARTBEAT_INTERVAL) * time.Second)
+	memoryScan := time.NewTicker(time.Duration(MEMORYSCAN_INTERVAL) * time.Second)
+	threadScan := time.NewTicker(time.Duration(THREADSCAN_INTERVAL) * time.Second)
+	handleScan := time.NewTicker(time.Duration(HANDLESCAN_INTERVAL) * time.Second)
 	defer memoryScan.Stop()
 	defer heartbeat.Stop()
 
@@ -75,6 +77,11 @@ func PeriodicScanScheduler(wg *sync.WaitGroup, ctx context.Context) {
 					}
 				}
 			}()
+		case <-threadScan.C: // global thread scan
+			priorityTasks <- Scan{Pid: 0, Type: SCAN_THREADSCAN}
+		case <-handleScan.C:
+			priorityTasks <- Scan{Pid: 0, Type: SCAN_HANDLESCAN}
+
 		case <-heartbeat.C:
 			go func() { // launch a goroutine to check each heartbeat
 				for pid, process := range processes {
@@ -109,6 +116,15 @@ func PeriodicScanHandler(wg *sync.WaitGroup, priorityTasks chan Scan, tasks chan
 					priorityTasks <- Scan{Pid: scan.Pid, Type: SCAN_MEMORYSCAN_FULL}
 				}
 			}
+		//TODO: case SCAN_HANDLESCAN:
+		//TODO: case SCAN_THREADSCAN:
+		case SCAN_THREADSCAN:
+			var count C.size_t
+			threads := C.ScanProcessThreads(uint32(scan.Pid), &count)
+			if count == 0 {
+				continue
+			}
+			//TODO: respond to results
 		case scan := <-tasks:
 			switch scan.Type {
 			case SCAN_MEMORYSCAN:
@@ -120,6 +136,8 @@ func PeriodicScanHandler(wg *sync.WaitGroup, priorityTasks chan Scan, tasks chan
 				if results.TotalScore > 10 {
 					priorityTasks <- Scan{Pid: scan.Pid, Type: SCAN_MEMORYSCAN_FULL}
 				}
+
+				//TODO: case SCAN_UNBACKED_CODE:
 			}
 		}
 	}
