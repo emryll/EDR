@@ -286,9 +286,10 @@ type ThreadEntry struct {
 
 type Alert struct {
 	TimeStamp int64
-	Type int
-	Msg string
+	Caption string
+	Message string
 	Score int
+	Type int
 	Pid int
 }
 

@@ -7,8 +7,14 @@ import (
 	"github.com/go-toast/toast"
 )
 
-func CreateAlert(alert int, msg string, score int, pid int) Alert {
-	return Alert{Type: alert, Msg: msg, Score: score, Pid: pid, TimeStamp: time.Now().Unix()}
+func CreateAlert(alert int, caption string, msg string, score int, pid int) Alert {
+	var capt string
+	if caption == "" {
+		capt = "Alert!"
+	} else {
+		capt = caption
+	}
+	return Alert{Type: alert, Caption: capt, Message: msg, Score: score, Pid: pid, TimeStamp: time.Now().Unix()}
 }
 
 func (a Alert) PushAlert(msg ...bool) {
@@ -17,9 +23,7 @@ func (a Alert) PushAlert(msg ...bool) {
 	} else {
 		a.Print()
 	}
-	processes[a.Pid].ScoreMu.Lock()
-	processes[a.Pid].TotalScore += a.Score
-	processes[a.Pid].ScoreMu.Unlock()
+	processes[a.Pid].IncrementScore(a.Score)
 	AlertMu.Lock()
 	AlertHistory = append(AlertHistory, a)
 	AlertMu.Unlock()
@@ -29,8 +33,8 @@ func (a Alert) PushAlert(msg ...bool) {
 func (a Alert) PushMessage() {
 	notification := toast.Notification{
 		AppID:    "Genesis EDR",
-		Title:    "Alert!",
-		Message:  a.Msg,
+		Title:    a.Caption,
+		Message:  a.Message,
 		Duration: toast.Long,
 		Icon:     ALERT_ICON_PATH,
 		Actions: []toast.Action{
@@ -81,13 +85,13 @@ func (a Alert) Print(args ...int) {
 	}
 	if len(flags) == 0 {
 		red.Log("\n[ALERT] ")
-		white.Log("%s\n", a.Msg)
+		white.Log("%s\n", a.Message)
 		return
 	}
 	if flags[FLAG_PRINT_INFO] {
 		stamp := time.Unix(a.TimeStamp, 0)
 		fmt.Printf("\n[%s] ALERT - %s\n\t* Process Id: %d\n\t* Score: %d\n",
-			stamp.Format("02-01-2006 15:04:05"), a.Msg, a.Pid, a.Score)
+			stamp.Format("02-01-2006 15:04:05"), a.Message, a.Pid, a.Score)
 	}
 }
 
@@ -101,12 +105,12 @@ func (p *Process) IncrementScore(amount int, score ...int) {
 		}
 	}
 	p.Score.Mu.Lock()
-	if flags[SCORE_RANSOMWARE] {
+	if flags[FLAG_RANSOMWARE] {
 		p.Score.RansomScore += amount
 		p.Score.Mu.Unlock()
 		p.CheckThresholds()
 		return
-	} else if flags[SCORE_STATIC] {
+	} else if flags[FLAG_STATIC] {
 		p.Score.StaticScore += amount
 	}
 	p.Score.TotalScore += amount
@@ -118,20 +122,20 @@ func (p *Process) CheckThresholds() {
 	if p.Score.StaticScore > SCORE_STATIC_ALERT_THRESHOLD {
 		msg := fmt.Sprintf("Static analysis score (%d) of process %d went over first threshold (%d)",
 			p.Score.StaticScore, p.ProcessId, SCORE_STATIC_ALERT_THRESHOLD)
-		alert := CreateAlert(ALERT_SCORE_THRESHOLD, msg, 0, int(p.ProcessId))
-		alert.PushAlert(FLAG_MESSAGE)
+		alert := CreateAlert(ALERT_SCORE_THRESHOLD, "", msg, 0, int(p.ProcessId))
+		alert.PushAlert(true) // push as toast notification
 	}
 	if p.Score.RansomScore > SCORE_RANSOM_ALERT_THRESHOLD {
 		msg := fmt.Sprintf("Ransomware behavioral score (%d) of process %d went over first threshold (%d)",
 			p.Score.RansomScore, p.ProcessId, SCORE_RANSOM_ALERT_THRESHOLD)
-		alert := CreateAlert(ALERT_SCORE_THRESHOLD, msg, 0, int(p.ProcessId))
-		alert.PushAlert()
+		alert := CreateAlert(ALERT_SCORE_THRESHOLD, "", msg, 0, int(p.ProcessId))
+		alert.PushAlert(true) // push as toast notification
 	}
 	if p.Score.TotalScore > SCORE_TOTAL_ALERT_THRESHOLD {
 		msg := fmt.Sprintf("Total behavioral score (%d) of process %d went over first threshold (%d)",
 			p.Score.TotalScore, p.ProcessId, SCORE_TOTAL_ALERT_THRESHOLD)
-		alert := CreateAlert(ALERT_SCORE_THRESHOLD, msg, 0, int(p.ProcessId))
-		alert.PushAlert()
+		alert := CreateAlert(ALERT_SCORE_THRESHOLD, "", msg, 0, int(p.ProcessId))
+		alert.PushAlert(true) // push as toast notification
 	}
 
 	if p.Score.StaticScore > SCORE_STATIC_FINAL_THRESHOLD {
