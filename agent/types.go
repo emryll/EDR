@@ -13,25 +13,31 @@ const VERSION = "0.0.1-demo"
 
 type Process struct {
 	Path           string
+	ProcessId 	   uint32
 	ParentPid      uint32
 	ParentPath     string
 	IsSigned       bool
 	IsElevated     bool
 	Integrity      uint32
 	StaticScanDone bool // represents the first static scan to avoid unnecessary extra scans. might also want a file scan history
+	Score 		   Score
 	ApiMu          sync.Mutex
 	// this is collected telemetry data history
-	APICalls map[string]ApiCallData // key: api call name
+	APICalls map[string]ApiEvent // key: api call name
 	// to make behavioral patterns more flexible, file events are organized into directories,
 	// so this will point to a directory map, which has all the files. key is the filename
 	FileEvents FileTelemetryCatalog
-	RegEvents  map[string]RegEventData // key: name of reg key
+	RegEvents RegTelemetryCatalog
 	// these are the matched patterns that make up the total score
 	PatternMatches map[string]*StdResult // key: name of pattern
 	LastHeartbeat  int64                 // telemetry dll heartbeat
-	ScoreMu        sync.Mutex            // mutex for modifying score
-	StaticScore    int
-	TotalScore     int
+}
+
+type Score struct {
+	Mu 			sync.Mutex
+	TotalScore  int
+	StaticScore int
+	RansomScore int
 }
 
 // This is the universal result type for portraying multiple matches from a single scan.
@@ -84,29 +90,6 @@ type MalApi struct {
 	Severity int      `json:"severity"`
 	Score    int      `json:"score"`
 	Tag      []string `json:"tag"`
-}
-
-// TODO change name to id
-type ApiPattern struct {
-	Name        string     `json:"name"`
-	Description string     `json:"description"`
-	Category    []string   `json:"category"`
-	ApiCalls    [][]string `json:"api_calls"`  // lets you define all possible options, so can do both kernel32 and nt
-	TimeRange   int        `json:"time_range"` // seconds (only for behavioral patterns, not static)
-	Score       int        `json:"score"`      // actual score for how malicious it is
-	Severity    int        `json:"severity"`   // severity only for coloring output: 0(low), 1(medium) or 2(high)
-}
-
-// describes a file system event or registry event pattern
-type FRPattern struct {
-	Name     string   `json:"name"`
-	Severity int      `json:"severity"`
-	Path     []string `json:"path"`   // make into map?
-	Action   int      `json:"action"` // can be multiple, check with &
-	// optional, currently intended for reg patterns, but may be used for fs as well in the future
-	// for example, it could be used to refer to unsigned processes, or maybe !Windows/System32/*
-	// to refer to all non-system32 paths. Currently this arg is not implemented as of 0.0.0-alpha
-	Arg []string `json:"arg"`
 }
 
 // Describe results of a hash lookup originating from malwarebazaar
@@ -173,22 +156,26 @@ type ApiArgV2 struct {
 }
 
 // describe an api call intercepted by hooks
-type ApiCallData struct {
+type ApiEvent struct {
 	ThreadId   uint32
 	DllName    string
 	FuncName   string
 	TimeStamp  int64
-	ArgCount   uint32 //unnecessary, no?
 	Parameters map[string]Parameter
-	History    []ApiCallData // sorted by timestamp
+	History    []ApiEvent // sorted by timestamp
 }
 
-func (a ApiCallData) GetTime() int64 {
+// what is the point of this method?
+func (a ApiEvent) GetTime() int64 {
 	return a.TimeStamp
 }
 
-func (a ApiCallData) HistoryPtr() *[]ApiCallData {
+func (a ApiEvent) HistoryPtr() *[]ApiEvent {
 	return &a.History
+}
+
+func (a ApiEvent) GetEventType() int {
+	return TM_TYPE_API_CALL
 }
 
 // results of an integrity check of a modules .text section
@@ -201,6 +188,11 @@ type TextCheckData struct {
 type IatIntegrityData struct {
 	FuncName string
 	Address  uint64
+}
+
+type RegTelemetryCatalog struct {
+	RegPathTree map[string][]*RegistryEvent // path
+	RegActionTree map[int][]*RegistryEvent // action
 }
 
 type FileTelemetryCatalog struct {
@@ -233,6 +225,10 @@ func (f FileEvent) GetParameter(name string) Parameter {
   return Parameter{}
 }
 
+func (f FileEvent) GetEventType() int {
+	return TM_TYPE_FILE_EVENT
+}
+
 type RegistryEvent struct {
 	Path      string
 	Action    uint32
@@ -250,6 +246,10 @@ func (r RegistryEvent) GetParameter(name string) Parameter {
     return param
   }
   return Parameter{}
+}
+
+func (r RegistryEvent) GetEventType() int {
+	return TM_TYPE_REG_EVENT
 }
 
 /*
@@ -274,6 +274,22 @@ type RemoteModule struct {
 	Name        [260]byte
 	NumSections uint64
 	Sections    []MemRegion
+}
+
+// go version of THREAD_ENTRY, for thread scans
+type ThreadEntry struct {
+	ThreadId 	 uint32
+	ProcessId 	 uint32
+	Reason 		 uint32
+	StartAddress uintptr
+}
+
+type Alert struct {
+	TimeStamp int64
+	Type int
+	Msg string
+	Score int
+	Pid int
 }
 
 func (m *RemoteModule) GetName() string {

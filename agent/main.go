@@ -37,6 +37,8 @@ var ( // all global variables belong here
 	rules            *yara.Rules
 	malapi           map[string]MalApi
 	BehaviorPatterns []BehaviorPattern
+	AlertHistory     []Alert
+	AlertMu          sync.Mutex
 )
 
 func PeriodicScanScheduler(wg *sync.WaitGroup, ctx context.Context) {
@@ -128,12 +130,14 @@ func PeriodicScanHandler(wg *sync.WaitGroup, priorityTasks chan Scan, tasks chan
 			for _, thread := range threads {
 				switch thread.Reason {
 				case THREAD_ENTRY_UNBACKED_MEM:
-					PushAlert(THREAD_ENTRY_UNBACKED_MEM,
+					alert := CreateAlert(THREAD_ENTRY_UNBACKED_MEM,
 						"Found a thread belonging to process %d with a start address pointing to unbacked executable memory!",
 						60, thread.Pid)
+					alert.PushAlert()
 				case THREAD_ENTRY_OUTSIDE_MODULE:
 					msg := fmt.Sprintf("Found a thread belonging to process %d with a start address pointing outside of any module (%p)", thread.StartAddress)
-					PushAlert(THREAD_ENTRY_OUTSIDE_MODULE, msg, thread.Pid, 50)
+					alert := CreateAlert(THREAD_ENTRY_OUTSIDE_MODULE, msg, thread.Pid, 50)
+					alert.PushAlert()
 				}
 			}
 		case scan := <-tasks:

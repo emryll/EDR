@@ -19,8 +19,16 @@ const (
 	MAX_PROCESS_SCORE         = 100
 	MAX_STATIC_SCORE          = 100
 
-	MEMORYSCAN_INTERVAL         = 45  //sec
-	THREADSCAN_INTERVAL         = 45  //sec
+	SCORE_STATIC_ALERT_THRESHOLD = 60
+	SCORE_STATIC_FINAL_THRESHOLD = 90
+	SCORE_RANSOM_ALERT_THRESHOLD = 50
+	SCORE_RANSOM_FINAL_THRESHOLD = 80
+	SCORE_TOTAL_ALERT_THRESHOLD  = 50
+	SCORE_TOTAL_FINAL_THRESHOLD  = 80
+
+	MEMORYSCAN_INTERVAL         = 30  //sec
+	THREADSCAN_INTERVAL         = 30  //sec
+	HANDLESCAN_INTERVAL         = 30  // sec
 	HEARTBEAT_INTERVAL          = 30  //sec
 	NETWORKSCAN_INTERVAL        = 180 //sec, 3min
 	MAX_HEARTBEAT_DELAY         = HEARTBEAT_INTERVAL * 2
@@ -30,6 +38,8 @@ const (
 	SCAN_MEMORYSCAN_EX   = 1 // scan all sections of all modules
 	SCAN_MEMORY_MODULE   = 2 // fully scan specific module
 	SCAN_MEMORYSCAN_FULL = 3 // scan the whole process
+	SCAN_THREADSCAN      = 0x10
+	SCAN_HANDLESCAN      = 0xff
 
 	TM_TYPE_EMPTY_VALUE    = 0
 	TM_TYPE_API_CALL       = 1
@@ -46,10 +56,15 @@ const (
 	API_ARG_TYPE_BOOL    = 4
 	API_ARG_TYPE_PTR     = 5
 
-	MAX_API_ARGS     = 10
-	API_ARG_MAX_SIZE = 520
-	TM_HEADER_SIZE   = 24
-	TM_MAX_DATA_SIZE = 67624 - TM_HEADER_SIZE
+	MAX_API_ARGS                = 10
+	API_ARG_MAX_SIZE            = 520
+	TM_HEADER_SIZE              = 24
+	TM_MAX_DATA_SIZE            = 67624 - TM_HEADER_SIZE
+	FLAG_PRINT_INFO             = 1
+	FLAG_MESSAGE                = 2
+	ALERT_SCORE_THRESHOLD       = 1
+	THREAD_ENTRY_OUTSIDE_MODULE = 2
+	THREAD_ENTRY_UNBACKED_MEM   = 3
 
 	IS_UNSIGNED   = 0
 	HAS_SIGNATURE = 1
@@ -65,7 +80,7 @@ const (
 	GROUP_REMOTE_MEM_PROTECT  = "remote_mem_protect"
 	GROUP_FILE_EVENT          = "file_event"
 	GROUP_REG_EVENT           = "reg_event"
-	GROUP_INVALID_API_OPTIONS = "invalid_api"
+	GROUP_INVALID_API_OPTIONS = "invalid_api" // two or more apis of different groups
 	GROUP_UNKNOWN_API         = "unknown_api"
 
 	DUCK_BANNER    = 0
