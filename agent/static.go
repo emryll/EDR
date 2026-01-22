@@ -99,11 +99,8 @@ func StaticScan[T int | string](target T, print bool) {
 			//* log
 			if pidExists {
 				if _, matchExists := processes[pid].PatternMatches["STATIC:"+match.Name]; !matchExists {
-					mu.Lock()
 					processes[pid].PatternMatches["STATIC:"+match.Name] = &match
-					processes[pid].StaticScore += match.Score
-					processes[pid].TotalScore += match.Score
-					mu.Unlock()
+					processes[pid].IncrementScore(match.Score, SCORE_STATIC)
 				}
 			}
 			total += match.Score
@@ -130,11 +127,8 @@ func StaticScan[T int | string](target T, print bool) {
 			for _, match := range malimpResults {
 				if pidExists {
 					if _, matchExists := processes[pid].PatternMatches["STATIC:"+match.Name]; !matchExists {
-						mu.Lock()
 						processes[pid].PatternMatches["STATIC:"+match.Name] = &match
-						processes[pid].StaticScore += match.Score
-						processes[pid].TotalScore += match.Score
-						mu.Unlock()
+						processes[pid].IncrementScore(match.Score, SCORE_STATIC)
 					}
 				}
 			}
@@ -161,11 +155,8 @@ func StaticScan[T int | string](target T, print bool) {
 		for _, match := range proxyDllResults {
 			if pidExists {
 				if _, matchExists := processes[pid].PatternMatches["STATIC:"+match.Name]; !matchExists {
-					mu.Lock()
 					processes[pid].PatternMatches["STATIC:"+match.Name] = &match
-					processes[pid].StaticScore += match.Score
-					processes[pid].TotalScore += match.Score
-					mu.Unlock()
+					processes[pid].IncrementScore(match.Score, SCORE_STATIC)
 				}
 			}
 		}
@@ -181,11 +172,8 @@ func StaticScan[T int | string](target T, print bool) {
 	for _, match := range streamResults {
 		if pidExists {
 			if _, matchExists := processes[pid].PatternMatches["STATIC:"+match.Name]; !matchExists {
-				mu.Lock()
 				processes[pid].PatternMatches["STATIC:"+match.Name] = &match
-				processes[pid].StaticScore += match.Score
-				processes[pid].TotalScore += match.Score
-				mu.Unlock()
+				processes[pid].IncrementScore(match.Score, SCORE_STATIC)
 			}
 		}
 	}
@@ -201,11 +189,8 @@ func StaticScan[T int | string](target T, print bool) {
 		for _, match := range sectionResults {
 			if pidExists {
 				if _, matchExists := processes[pid].PatternMatches["STATIC:"+match.Name]; !matchExists {
-					mu.Lock()
 					processes[pid].PatternMatches["STATIC:"+match.Name] = &match
-					processes[pid].StaticScore += match.Score
-					processes[pid].TotalScore += match.Score
-					mu.Unlock()
+					processes[pid].IncrementScore(match.Score, STATIC_SCORE)
 				}
 			}
 		}

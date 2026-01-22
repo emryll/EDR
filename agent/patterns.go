@@ -90,16 +90,12 @@ func (p *Process) CheckApiPatterns() Result {
 					continue
 				}
 				//? value is a copy, thats why it cant be used
-				mu.Lock()
 				p.PatternMatches[matchResult.Name].Count++
 				p.PatternMatches[matchResult.Name].TimeStamp = matchResult.TimeStamp
-				mu.Unlock()
 			} else {
-				mu.Lock()
 				p.PatternMatches[matchResult.Name] = &matchResult
 				//? should you increment score on duplicates or not? be consistent
-				p.TotalScore += matchResult.Score
-				mu.Unlock()
+				p.IncrementScore(matchResult.Score)
 			}
 		}
 	}
