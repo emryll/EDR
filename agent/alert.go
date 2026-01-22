@@ -25,15 +25,31 @@ func (a Alert) PushAlert(msg ...bool) {
 	AlertMu.Unlock()
 }
 
+// Push a toast notification of an alert, with options for further actions.
 func (a Alert) PushMessage() {
-	//TODO: enable actions from toast notification
-	// actions: "Allow behavior", "Scan process", "Terminate"
-	// for this you will need a notification helper program, probably.
 	notification := toast.Notification{
-		AppID:   "Genesis EDR",
-		Title:   "Alert!",
-		Message: a.Msg,
-		Icon:    ALERT_ICON_PATH,
+		AppID:    "Genesis EDR",
+		Title:    "Alert!",
+		Message:  a.Msg,
+		Duration: toast.Long,
+		Icon:     ALERT_ICON_PATH,
+		Actions: []toast.Action{
+			{
+				Type:      "protocol",
+				Label:     "Launch scan",
+				Arguments: fmt.Sprintf("%s%s?pid=%d", NOTIFICATION_PREFIX, "scan", a.Pid),
+			},
+			{
+				Type:      "protocol",
+				Label:     fmt.Sprintf("Ignore %d", a.Pid),
+				Arguments: fmt.Sprintf("%s%s?pid=%d", NOTIFICATION_PREFIX, "ignore", a.Pid),
+			},
+			{
+				Type:      "protocol",
+				Label:     "Terminate",
+				Arguments: fmt.Sprintf("%s%s?pid=%d", NOTIFICATION_PREFIX, "kill", a.Pid),
+			},
+		},
 	}
 	notification.Push()
 }
