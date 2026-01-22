@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"time"
+
+	"github.com/go-toast/toast"
 )
 
 func CreateAlert(alert int, msg string, score int, pid int) Alert {
@@ -24,7 +26,16 @@ func (a Alert) PushAlert(msg ...bool) {
 }
 
 func (a Alert) PushMessage() {
-	//TODO: push message to end user. something like messagebox but more modern
+	//TODO: enable actions from toast notification
+	// actions: "Allow behavior", "Scan process", "Terminate"
+	// for this you will need a notification helper program, probably.
+	notification := toast.Notification{
+		AppID:   "Genesis EDR",
+		Title:   "Alert!",
+		Message: a.Msg,
+		Icon:    ALERT_ICON_PATH,
+	}
+	notification.Push()
 }
 
 // timerange in seconds. 0 to print entire history
