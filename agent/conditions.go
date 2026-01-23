@@ -772,20 +772,96 @@ func (f HandleFilter) Check(p *Process, event interface{}) bool {
 		desiredAccess = handle.Access
 		accessFound = true
 		if handle.Type == OBJECT_TYPE_PROCESS {
-			//TODO: get target path
+			path, err := handle.GetPathFromProcessHandle()
+			if err != nil {
+				red.Log("[ERROR] ")
+				white.Log("%v\n", err)
+			} else {
+				pathFound = true
+				targetPath = path
+			}
 		} else if handle.Type == OBJECT_TYPE_THREAD {
-			//TODO: get target path
+			path, err := handle.GetPathFromThreadHandle()
+			if err != nil {
+				red.Log("[ERROR] ")
+				white.Log("%v\n", err)
+			} else {
+				pathFound = true
+				targetPath = path
+			}
 		}
 
 	default: // shouldnt be used on others
 		return true
 	}
 
+	if !accessFound && (len(f.Access) > 0 || len(f.AccessNot) > 0) {
+		return false
+	}
+	if !pathFound && (len(f.TargetPath) > 0 || len(f.TargetPathNot) > 0) {
+		return false
+	}
 
-
+	// Check handle access conditions
+	if !CheckBitmaskFilter(desiredAccess, f.Access, f.AccessNot) {
+		return false
+	}
+	// Check target path conditions
+	if !CheckPathFilter(targetPath, f.TargetPath, f.TargetPathNot, true) {
+		return false
+	}
+	return true
 }
 
 // Method to implement Condition interface. Returns true if it passed filter
 func (f PTCreationFilter) Check(p *Process, event interface{}) bool {
 	//? only creation flags are needed
+}
+
+func CheckBitmaskFilter(mask uint32, wanted []uint32, denied []uint32) bool {
+	var found bool
+	for _, flag := range wanted {
+		if mask&flag != 0 {
+			found = true
+			break
+		}
+	}
+	if !found && len(wanted) > 0 {
+		return false
+	} 
+
+	for _, flag := range denied {
+		if mask&flag != 0 {
+			return false
+		}
+	}
+	return true
+}
+
+// Name parameter defines if you want to also allow filename matches in addition to full path matches.
+func CheckPathFilter(path string, wanted []string, denied []string, name bool) bool {
+	var found bool
+	for _, p := range wanted {
+		if path == p {
+			found = true
+			break
+		}
+		if name && filepath.Base(path) == p {
+			found = true
+			break
+		}
+	}
+	if !found && len(wanted) > 0 {
+		return false
+	}
+	
+	for _, p := range denied {
+		if path == p {
+			return false
+		}
+		if name && filepath.Base(path) == p {
+			return false
+		}
+	}
+	return true
 }
