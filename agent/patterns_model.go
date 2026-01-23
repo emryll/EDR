@@ -35,9 +35,9 @@ type BehaviorPattern struct {
 }
 
 type Component interface {
-	GetDefaultName() string // fallback naming if pattern is missing a name and description
+	GetName() string
 	GetGroup() int
-	GetResult(p *Process) ComponentResult // does this behavior appear in telemetry history (and conditions are ok)
+	GetResult(p *Process) *ComponentResult // does this behavior appear in telemetry history (and conditions are ok)
 	IsTimeSensitive() bool
 	IsRequired() bool
 	GetBonus() int
@@ -56,6 +56,7 @@ type Event interface {
 
 // This describes one event in the timeline. An api call specifically.
 type ApiComponent struct {
+	Name              string
 	Options           []string
 	Conditions        []Condition
 	UniversalOverride *UniversalConditions
@@ -65,6 +66,7 @@ type ApiComponent struct {
 
 // This describes one event in the timeline. A file system event specifically.
 type FileComponent struct {
+	Name              string
 	Action            uint32
 	Conditions        []Condition
 	UniversalOverride *UniversalConditions
@@ -74,12 +76,8 @@ type FileComponent struct {
 
 // This describes one event in the timeline. A registry event specifically.
 type RegComponent struct {
+	Name              string
 	Action            uint32
-	Name              []string
-	NameNot           []string
-	DirOptions        []string
-	DirNot            []string
-	KeyOptions        []string
 	Conditions        []Condition
 	UniversalOverride *UniversalConditions
 	TimeMatters       bool
@@ -87,6 +85,7 @@ type RegComponent struct {
 }
 
 type HandleComponent struct {
+	Name              string
 	Type              uint32
 	Access            []uint32
 	Conditions        []Condition
@@ -101,6 +100,18 @@ type Condition interface {
 	Check(p *Process, event Event) bool
 }
 
+type UniversalConditions struct {
+	Parent    []string
+	ParentNot []string
+	Process   *ProcessFilter
+	//IsRemote  	 bool
+	//? ^for this one you need to implement calling thread collection into all telemetry packets (add tid field to header)
+	SessionId    []uint32
+	SessionIdNot []uint32
+	User         []string
+	UserNot      []string
+}
+
 // condition set for generic 32-bit flags
 type GenericFlags struct {
 	Flags    []uint32 // flags
@@ -112,9 +123,7 @@ type GenericAccess struct {
 	AccessNot []uint32 // access_not
 }
 
-type GenericThread struct {
-}
-
+// this is special case from generics flags because of the create suspended
 type ThreadCreationFilter struct {
 	Flags           []uint32 // flags
 	FlagsNot        []uint32 // flags_not
@@ -130,6 +139,7 @@ type ProcessCreationFilter struct {
 	TokenUsed bool // token_used. signifies a token was specified.
 }
 
+//TODO
 // "target_process" / "process" conditions
 // This should only be for components operating on a process (remote alloc, process creation, etc.)
 type ProcessFilter struct {
@@ -142,6 +152,7 @@ type ProcessFilter struct {
 	IsElevated bool
 }
 
+//TODO
 // "target_file" condition
 // Describes a file being operated on => requires component to be file operation
 type FileFilter struct {
@@ -157,18 +168,7 @@ type FileFilter struct {
 	MagicMatch    bool
 }
 
-type UniversalConditions struct {
-	Parent    []string
-	ParentNot []string
-	Process   *ProcessFilter
-	//IsRemote  	 bool
-	//? ^for this one you need to implement calling thread collection into all telemetry packets (add tid field to header)
-	SessionId    []uint32
-	SessionIdNot []uint32
-	User         []string
-	UserNot      []string
-}
-
+//TODO
 // conditions for memory allocation only
 type AllocFilter struct {
 	SizeMin        int64
@@ -183,6 +183,7 @@ type AllocFilter struct {
 	IsRemoteAlloc  bool
 }
 
+//TODO
 // conditions for changing memory page protections
 type ProtectFilter struct {
 	OldProtection []uint32
@@ -195,18 +196,20 @@ type GetFnFilter struct {
 	FunctionNot []string
 }
 
+//TODO
 // GetModuleHandle, or LoadLibrary
 type ModuleFilter struct {
 	Module    []string
 	ModuleNot []string
 }
 
-// for opening handle to thread or process
-type PTHandleFilter struct {
-	TargetPath       []string
-	TargetPathNot    []string
-	DesiredAccess    []uint32 // enums
-	DesiredAccessNot []uint32
+//TODO
+// Remote memory read or write
+type RemoteMemRwFilter struct {
+	// process filter additionally; not included here
+	SizeMin uint64
+	SizeMax uint64
+	//might want to add a function to check if it points to certain module
 }
 
 // for creating process or thread (seperate one for files/reg)
@@ -216,7 +219,15 @@ type PTCreationFilter struct {
 }
 
 //TODO: registry filter
-// target path, target
+type RegistryFilter struct {
+}
+
+type HandleFilter struct {
+	Access        []uint32
+	AccessNot     []uint32
+	TargetPath    []string // only if thread or process
+	TargetPathNot []string // only if thread or process
+}
 
 // simple getter methods for Component interface
 func (c ApiComponent) GetBonus() int {
@@ -241,4 +252,32 @@ func (c RegComponent) GetBonus() int {
 
 func (c RegComponent) IsRequired() bool {
 	return c.Bonus == 0
+}
+
+func (c HandleComponent) GetBonus() int {
+	return c.Bonus
+}
+
+func (c HandleComponent) IsRequired() bool {
+	return c.Bonus == 0
+}
+
+func (c HandleComponent) IsTimeSensitive() bool {
+	return c.TimeMatters
+}
+
+func (c ApiComponent) GetName() string {
+	return c.Name
+}
+
+func (c FileComponent) GetName() string {
+	return c.Name
+}
+
+func (c RegComponent) GetName() string {
+	return c.Name
+}
+
+func (c HandleComponent) GetName() string {
+	return c.Name
 }

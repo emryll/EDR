@@ -6,6 +6,8 @@ const (
 	//TODO: thread/process access constants
 	//TODO: integrity level enums
 	MAX_PATH                  = 260 // MAX_PATH from windows.h
+	ALERT_ICON_PATH           = "./rsrc/icon.png"
+	NOTIFICATION_PREFIX       = "genesis-helper://"
 	DEFAULT_RULE_DIR          = "./rules"
 	DEFAULT_PATTERN_FILENAME  = "apipatterns.json"
 	DEFAULT_FUNCLIST_FILENAME = "malapi.json"
@@ -48,6 +50,7 @@ const (
 	TM_TYPE_TEXT_INTEGRITY = 4
 	TM_TYPE_IAT_INTEGRITY  = 5
 	TM_TYPE_GENERIC_ALERT  = 6
+	EVENT_TYPE_HANDLE      = -1
 
 	API_ARG_TYPE_EMPTY   = 0
 	API_ARG_TYPE_DWORD   = 1
@@ -61,7 +64,10 @@ const (
 	TM_HEADER_SIZE              = 24
 	TM_MAX_DATA_SIZE            = 67624 - TM_HEADER_SIZE
 	FLAG_PRINT_INFO             = 1
-	FLAG_MESSAGE                = 2
+	FLAG_STATIC                 = 3
+	FLAG_RANSOMWARE             = 4
+	SCORE_STATIC                = 1
+	SCORE_RANSOMWARE            = 2
 	ALERT_SCORE_THRESHOLD       = 1
 	THREAD_ENTRY_OUTSIDE_MODULE = 2
 	THREAD_ENTRY_UNBACKED_MEM   = 3
@@ -82,6 +88,34 @@ const (
 	GROUP_REG_EVENT           = "reg_event"
 	GROUP_INVALID_API_OPTIONS = "invalid_api" // two or more apis of different groups
 	GROUP_UNKNOWN_API         = "unknown_api"
+
+	OBJECT_TYPE_UNKNOWN        = 0
+	OBJECT_TYPE_PROCESS        = 1
+	OBJECT_TYPE_THREAD         = 2
+	OBJECT_TYPE_TOKEN          = 3
+	OBJECT_TYPE_DEVICE         = 4
+	OBJECT_TYPE_DESKTOP        = 5
+	OBJECT_TYPE_DRIVER         = 6
+	OBJECT_TYPE_WORKER_FACTORY = 7
+	OBJECT_TYPE_SECTION        = 8
+	OBJECT_TYPE_DBGOBJECT      = 9
+	OBJECT_TYPE_EVENT          = 10
+	OBJECT_TYPE_DIRECTORY      = 11
+	OBJECT_TYPE_FILE           = 12
+	OBJECT_TYPE_SEMAPHORE      = 13
+	OBJECT_TYPE_KEY            = 14
+	OBJECT_TYPE_SYMLINK        = 15
+
+	PARAMETER_ANSISTRING  = 1
+	PARAMETER_POINTER     = 3
+	PARAMETER_POINTER_ARR = 30
+	PARAMETER_UINT32      = 4
+	PARAMETER_UINT32_ARR  = 40
+	PARAMETER_UINT64      = 5
+	PARAMETER_UINT64_ARR  = 50
+	PARAMETER_BOOLEAN     = 6
+	PARAMETER_BOOLEAN_ARR = 60
+	PARAMETER_BYTES       = 7
 
 	DUCK_BANNER    = 0
 	TOTORO_BANNER1 = 1

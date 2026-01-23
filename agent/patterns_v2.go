@@ -67,8 +67,8 @@ Options:
 		}
 		result.Exists = true
 		result.Bonus = c.Bonus
-		result.Required = c.IsRequired()
 	}
+	result.Required = c.IsRequired()
 	return &result
 }
 
@@ -78,7 +78,7 @@ func (c FileComponent) GetResult(p *Process) *ComponentResult {
 	var result ComponentResult
 	//* 1. Check potential universal condition override
 	if c.UniversalOverride != nil && !c.UniversalOverride.Check(p) {
-		return &result // false
+		return &ComponentResult{Exists: false, Required: c.IsRequired()}
 	}
 	var filter FileFilter
 	// due to storage structure, need to peek at the filter to retrieve list of events
@@ -120,8 +120,8 @@ Events:
 		}
 		result.Exists = true
 		result.Bonus = c.Bonus
-		result.Required = c.IsRequired()
 	}
+	result.Required = c.IsRequired()
 	return &result
 }
 
@@ -129,7 +129,7 @@ func (c RegComponent) GetResult(p *Process) *ComponentResult {
 	var result ComponentResult
 	//* 1. Check potential universal condition override
 	if c.UniversalOverride != nil && !c.UniversalOverride.Check(p) {
-		return &result // false
+		return &ComponentResult{Exists: false, Required: c.IsRequired()}
 	}
 	//? registry events are stored by path (hive+key)
 	// need to peek at the filter to retrieve list of events
@@ -165,21 +165,20 @@ Events:
 		}
 		result.Exists = true
 		result.Bonus = c.Bonus
-		result.Required = c.IsRequired()
 	}
+	result.Required = c.IsRequired()
 	return &result
 }
 
-func (c ApiComponent) GetName() string {
-	return c.Name
-}
+// This unfortunately currently parses the entire global handle table, therefore should be avoided
+func (c HandleComponent) GetResult(p *Process) *ComponentResult {
+	var result ComponentResult
+	//TODO: check universal override
 
-func (c FileComponent) GetName() string {
-	return c.Name
-}
-
-func (c RegComponent) GetName() string {
-	return c.Name
+	//TODO: Get all handles of this process (same object type)
+	//TODO: Check conditions
+	1
+	return result
 }
 
 func (p Parameter) GetValue() any {

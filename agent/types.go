@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/binary"
 	"io"
 	"sync"
 	"unsafe"
@@ -65,6 +66,7 @@ type Color struct {
 	*color.Color
 }
 
+// Structure describing logger config
 type DualWriter struct {
 	file   io.Writer
 	stdout io.Writer
@@ -282,6 +284,36 @@ type ThreadEntry struct {
 	ProcessId 	 uint32
 	Reason 		 uint32
 	StartAddress uintptr
+}
+
+// This also implements Event interface because its a component type, for now.
+type HandleEntry struct {
+	Handle uintptr
+	Type   uint32
+	Pid    uint32
+	Access uint32
+}
+
+func (handle HandleEntry) GetEventType() int {
+	return EVENT_TYPE_HANDLE
+}
+
+func (handle HandleEntry) GetParameter(name string) Parameter {
+	switch name {
+	case "Access", "DesiredAccess":
+		param := Parameter{Name: name, Type: PARAMETER_UINT32}
+		param.Buffer = binary.LittleEndian.AppendUint32(param.Buffer, handle.Access)
+		return param
+	case "Type", "ObjectType", "HandleType":
+		param := Parameter{Name: name, Type: PARAMETER_UINT32}
+		param.Buffer = binary.LittleEndian.AppendUint32(param.Buffer, handle.Type)
+		return param
+	case "Pid", "CallingPid", "Owner", "OwningPid":
+		param := Parameter{Name: name, Type: PARAMETER_UINT32}
+		param.Buffer = binary.LittleEndian.AppendUint32(param.Buffer, handle.Pid)
+		return param
+	}
+	return Parameter{}
 }
 
 type Alert struct {

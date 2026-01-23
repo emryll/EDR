@@ -43,6 +43,11 @@ func (event RegComponent) GetGroup() int {
 }
 
 // Get the group this event belongs to. This is needed to implement Component interface
+func (event HandleComponent) GetGroup() int {
+	return GROUP_HANDLE_EVENT
+}
+
+// Get the group this event belongs to. This is needed to implement Component interface
 func (event ApiComponent) GetGroup() int {
 	return GetApiGroup(event.Options)
 }
@@ -141,7 +146,8 @@ func GetApiGroup(options []string) int {
 
 			//TODO DuplicateToken, DuplicateHandle
 			//TODO token impersonation APIs
-		case "IsDebuggerPresent":
+		}
+		if ApiInGenericEmptyGroup(options) {
 			groups[GROUP_GENERIC_EMPTY] = true
 		}
 	}
@@ -152,7 +158,7 @@ func GetApiGroup(options []string) int {
 		}
 		return GROUP_INVALID_API_OPTIONS
 	}
-	for group, _ := range groups {
+	for group, _ := range groups { // cant access first element of map directly via index
 		return group
 	}
 	return GROUP_UNKNOWN_API
@@ -212,6 +218,9 @@ func SnakeCaseToPascalCase(str string) string {
 	return strings.Join(parts, "")
 }
 
+//*=======================================[ Condition set checks ]===========================================
+
+//TODO
 func (u UniversalConditions) Check(p *Process) bool {
 	//? to check if remote thread is running this, you need to get tid
 	var wantedParentFound bool
@@ -292,10 +301,32 @@ func (f GenericFlags) Check(p *Process, event Event) bool {
 	return true
 }
 
-// only works for API
-func (f GenericThread) Check(p *Process, event Event) bool {
-	api := event.(ApiCallData)
-	//TODO what is even needed here? theres not much to it... start routine etc are handled by the system already
+func (f GenericAccess) Check(p *Process, event Event) bool {
+	var mask uint32
+	accessParam := event.GetParameter("Access")
+	if len(accessParam.Buffer) > 0 {
+		mask = binary.LittleEndian.Uint32(accessParam.Buffer)
+	} else if len(f.Access) > 0 || len(f.AccessNot) > 0 {
+		return false
+	}
+
+	var accessFound bool
+	for _, flag := range f.Access {
+		if mask&flag != 0 {
+			flagFound = true
+			break
+		}
+	}
+	if !flagFound && len(f.Access) > 0 {
+		return false
+	}
+
+	for _, flag := range f.AccessNot {
+		if mask&flag != 0 {
+			return false
+		}
+	}
+	return true
 }
 
 // Method to implement Condition interface. Returns true if it passed filter.
@@ -503,6 +534,23 @@ func (f GetModuleFilter) Check(p *Process, event Event) bool {
   return true
 }
 
+func (f RemoteMemRwFilter) Check(p *Process, event Event) bool {
+	sizeParam := event.GetParameter("Size")
+	if len(size.Buffer) == 0 && (f.SizeMin != 0 || f.SizeMax != 0) {
+		return false
+	} else {
+		size := binary.LittleEndian.Uint64(sizeParam.Buffer)
+		if f.SizeMin != 0 && f.SizeMin > size {
+			return false
+		}
+		if f.SizeMax != 0 && f.SizeMax < size {
+			return false
+		}
+	} 
+
+	
+}
+
 // Method to implement Condition interface. Returns true if it passed filter
 func (f FileFilter) Check(p *Process, event Event) bool {
 	//TODO check if it is API or file event. For file event you need to look up the events
@@ -576,8 +624,13 @@ func (f FileFilter) Check(p *Process, event Event) bool {
 	return true
 }
 
+func (f RegistryFilter) Check(p *Process, event Event) bool {
+	//TODO
+	return true
+}
+w
 // Method to implement Condition interface. Returns true if it passed filter
-func (f AllocFilter) Check(p *Process, event interface{}) bool {
+func (f AllocFilter) Check(p *Process, event Event) bool {
 	//? memory allocation apis should save protection, allocation type and size
 	apiCall := event.(ApiCallData)
 	var (
@@ -686,17 +739,17 @@ func (f ProtectFilter) Check(p *Process, event interface{}) bool {
 
 // Method to implement Condition interface. Returns true if it passed filter
 func (f HandleFilter) Check(p *Process, event interface{}) bool {
-	//? only desired access is needed, but likely also target pid
-	apiCall := event.(ApiCallData)
 	var (
 		pathFound     bool
 		accessFound   bool
 		targetPath    string
 		desiredAccess uint32
 	)
-
-	for _, arg := range apiCall.args {
-		switch arg.Name {
+	switch event.GetEventType() {
+	case TM_TYPE_API_CALL:
+		apiCall := event.(ApiEvent)
+		for arg, val := range apiCall.Parameters {
+		switch arg {
 		case "TargetPath", "Path":
 			targetPath = ReadAnsiStringValue(arg.RawData)
 			pathFound = true
@@ -714,23 +767,22 @@ func (f HandleFilter) Check(p *Process, event interface{}) bool {
 			accessFound
 		}
 	}
+	case EVENT_TYPE_HANDLE:
+		handle := event.(HandleEntry)
+		desiredAccess = handle.Access
+		accessFound = true
+		if handle.Type == OBJECT_TYPE_PROCESS {
+			//TODO: get target path
+		} else if handle.Type == OBJECT_TYPE_THREAD {
+			//TODO: get target path
+		}
 
-	if pathFound {
-		var found bool
-		if len(f.TargetPath) == 0 {
-			found = true
-		}
-		for _, path := range f.TargetPath {
-
-		}
-		if !found {
-			return false
-		}
+	default: // shouldnt be used on others
+		return true
 	}
 
-	if accessFound {
 
-	}
+
 }
 
 // Method to implement Condition interface. Returns true if it passed filter
