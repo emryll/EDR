@@ -1,4 +1,5 @@
-<img width="752" height="147" alt="image" src="https://github.com/user-attachments/assets/95eb0a31-da22-4050-b14a-4e0205137f43" />
+<img width="751" height="133" alt="image" src="https://github.com/user-attachments/assets/ee6f1378-96c3-4981-90b4-80a32a926a0e" />
+
 &nbsp;
 
 **Genesis EDR is an open-source Endpoint Detection and Response system for x64 Windows.** Designed for security researchers and learners; it serves as an **educational tool** and case study, but can also be used to test red team tooling.
