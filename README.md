@@ -1,4 +1,6 @@
-<img width="751" height="174" alt="image" src="https://github.com/user-attachments/assets/82d1a2b6-3499-4b96-9e71-2ffaa9c554ef" />
+<img width="752" height="147" alt="image" src="https://github.com/user-attachments/assets/95eb0a31-da22-4050-b14a-4e0205137f43" />
+&nbsp;
+
 **Genesis EDR is an open-source Endpoint Detection and Response system for x64 Windows.** Designed for security researchers and learners; it serves as an **educational tool** and case study, but can also be used to test red team tooling.
 
 You can find **detailed documentation** about the architectural design and implementation at https://emryll.gitbook.io/byte4byte/genesis.
