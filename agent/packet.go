@@ -147,3 +147,50 @@ func PrintParameters(params map[string]Parameter) {
 		//DumpPacket(param.Buffer)
 	}
 }
+
+func (event ApiEvent) GetParameterWithOptions(options []string) Parameter {
+	for _, name := range options {
+		if param, exists := event.Parameters[name]; exists {
+			return param
+		}
+	}
+	return Parameter{}
+}
+
+func (event FileEvent) GetParameterWithOptions(options []string) Parameter {
+	for _, name := range options {
+		if param, exists := event.Parameters[name]; exists {
+			return param
+		}
+	}
+	return Parameter{}
+}
+
+func (event RegistryEvent) GetParameterWithOptions(options []string) Parameter {
+	for _, name := range options {
+		if param, exists := event.Parameters[name]; exists {
+			return param
+		}
+	}
+	return Parameter{}
+}
+
+func (handle HandleEntry) GetParameterWithOptions(options []string) Parameter {
+	for _, name := range options {
+		switch name {
+		case "Access", "DesiredAccess":
+			param := Parameter{Name: name, Type: PARAMETER_UINT32}
+			param.Buffer = binary.LittleEndian.AppendUint32(param.Buffer, handle.Access)
+			return param
+		case "Type", "ObjectType", "HandleType":
+			param := Parameter{Name: name, Type: PARAMETER_UINT32}
+			param.Buffer = binary.LittleEndian.AppendUint32(param.Buffer, handle.Type)
+			return param
+		case "Pid", "CallingPid", "Owner", "OwningPid":
+			param := Parameter{Name: name, Type: PARAMETER_UINT32}
+			param.Buffer = binary.LittleEndian.AppendUint32(param.Buffer, handle.Pid)
+			return param
+		}
+	}
+	return Parameter{}
+}
