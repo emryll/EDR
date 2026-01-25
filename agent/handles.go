@@ -43,7 +43,7 @@ func (handle HandleEntry) CheckPattern(pattern BehaviorPattern, handleTable *[]H
 		}
 		//* these contain the filters like handle access rights
 		for _, condition := range comp.Conditions {
-			if !condition.Check() {
+			if !condition.Check(nil, handle) {
 				return false
 			}
 		}

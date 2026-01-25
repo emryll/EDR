@@ -742,10 +742,52 @@ func FnCountImportedByPe(dllPath string, exePath string) (int, error) {
 	return importedFuncs, nil
 }
 
-func PushAlert(alert int, msg string, score int, pid int) {
-	red.Log("\n[ALERT] ")
-	white.Log("%s\n", msg)
-	processes[pid].ScoreMu.Lock()
-	processes[pid].TotalScore += score
-	processes[pid].ScoreMu.Unlock()
+func CreateAlert(alert int, msg string, score int, pid int) Alert {
+	return Alert{Type: alert, Msg: msg, Score: score, Pid: pid, TimeStamp: time.Now().Unix()}
+}
+
+func (a Alert) PushAlert() {
+	a.Print()
+	processes[a.Pid].ScoreMu.Lock()
+	processes[a.Pid].TotalScore += a.Score
+	processes[a.Pid].ScoreMu.Unlock()
+	AlertMu.Lock()
+	AlertHistory = append(AlertHistory, a)
+	AlertMu.Unlock()
+}
+
+// timerange in seconds. 0 to print entire history
+func PrintAlerts(timeRange int64) {
+	// since you append to end, alerts should be sorted incrementally (newest last)
+	for i := len(AlertHistory) - 1; i >= 0; i-- {
+		now := time.Now().Unix()
+		if timeRange > 0 && now-AlertHistory[i].TimeStamp > timeRange {
+			return
+		}
+		AlertHistory[i].Print(FLAG_PRINT_INFO)
+	}
+}
+
+func PrintLastAlerts(n int) {
+	for i := len(AlertHistory) - 1; i > len(AlertHistory)-1-n; i-- {
+		AlertHistory[i].Print(FLAG_PRINT_INFO)
+	}
+}
+
+func (a Alert) Print(args ...int) {
+	flags := make(map[int]bool)
+	if len(args) > 0 {
+		for _, f := range args {
+			flags[f] = true
+		}
+	}
+	if len(flags) == 0 {
+		red.Log("\n[ALERT] ")
+		white.Log("%s\n", a.Msg)
+		return
+	}
+	if flags[FLAG_PRINT_INFO] {
+		stamp := time.Unix(a.TimeStamp, 0)
+		fmt.Printf("\n[%s] ALERT - %s\n\t* Process Id: %d\n\t* Score: %d\n", a.Msg, a.Pid, a.Score)
+	}
 }
