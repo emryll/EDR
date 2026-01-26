@@ -553,50 +553,30 @@ func (f RemoteMemRwFilter) Check(p *Process, event Event) bool {
 
 // Method to implement Condition interface. Returns true if it passed filter
 func (f FileFilter) Check(p *Process, event Event) bool {
-	//TODO check if it is API or file event. For file event you need to look up the events
-	//? only filepath is needed
-	fileEvent := event.(FileEventData)
-	var foundName bool
-	if len(f.Name) == 0 {
-		foundName = true
-	}
-
-	//TODO: update for new nested directory design
-
-	for _, name := range f.Name {
-		if name == filepath.Base(fileEvent.Path) || name == fileEvent.Path {
-			foundName = true
-			break
-		}
-	}
-	if !foundName {
-		return false
-	}
-
-	for _, name := range f.NameNot {
-		if name == filepath.Base(fileEvent.Path) || name == fileEvent.Path {
+	var path string
+	switch event.GetEventType() {
+	case TM_TYPE_FILE_EVENT:
+		fileEvent := event.(FileEvent)
+		path = fileEvent.Path
+	case TM_TYPE_API_CALL:
+		pathParam := event.GetParameterWithOptions("FilePath", "TargetPath", "Path")
+		if len(pathParam.Buffer) == 0 && (len(f.Path) > 0 || len(f.PathNot) > 0
+		|| len(f.Dir) > 0 || len(f.DirNot) > 0 || len(f.Extension) > 0 || len(f.ExtNot) > 0) {
 			return false
 		}
+		path = ReadAnsiStringValue(pathParam.Buffer)
+	default:
+		return true // shouldnt be used on others
 	}
 
-	var foundPath bool
-	if len(f.Path) == 0 {
-		foundPath = true
-	}
-	for _, path := range f.Path {
-		if path == filepath.Dir(fileEvent.Path) || path == fileEvent.Path {
-			foundPath = true
-			break
-		}
-	}
-	if !foundPath {
+	if !CheckPathFilter(path, f.Path, f.PathNot, false) {
 		return false
 	}
-
-	for _, path := range f.PathNot {
-		if path == filepath.Base(fileEvent.Path) || path == fileEvent.Path {
-			return false
-		}
+	if !CheckPathFilter(path, f.Name, f.NameNot, true) {
+		return false
+	}
+	if !CheckDirFilter(path, f.Dir, f.DirNot) {
+		return false
 	}
 
 	var foundExt bool
@@ -604,7 +584,7 @@ func (f FileFilter) Check(p *Process, event Event) bool {
 		foundExt = true
 	}
 	for _, ext := range f.Extension {
-		if ext == filepath.Ext(fileEvent.Path) {
+		if ext == filepath.Ext(path) {
 			foundExt = true
 			break
 		}
@@ -614,21 +594,81 @@ func (f FileFilter) Check(p *Process, event Event) bool {
 	}
 
 	for _, ext := range f.ExtNot {
-		if ext == filepath.Base(fileEvent.Path) {
+		if ext == filepath.Ext(path) {
 			return false
 		}
 	}
 
-	//TODO: check if magic matches extension
+	if f.IsSigned.IsSet() || f.HashMismatch.IsSet() {
+		status, err := IsSignatureValid(path)
+		if err != nil {
+			red.Log("[ERROR] ")
+			white.Log("Failed to inspect file signature of %s: %v\n", path, err)
+		} else {
+			if f.IsSigned.True() != (status == HAS_SIGNATURE) {
+				return false
+			}
+			if f.HashMismatch.True() != (status == HASH_MISMATCH) {
+				return false
+			}
+		}
+	}
+	//TODO: is user path?
+	var magic Magic
+	if f.HasScaryMagic.IsSet() || f.MagicMismatch.IsSet() {
+		magic, err = FetchMagic(path)
+		if err != nil {
+			red.Log("[ERROR] ")
+			white.Log("Failed to get magic of %s: %v\n", path, err)
+		}
+	}
 
+	if f.HasScaryMagic.IsSet() {
+		if f.HasScaryMagic.True() != (magic.HasScaryMagic() || hasExecutableExtension(path)) {
+			return false
+		}
+	}
+	if f.MagicMismatch.IsSet() && f.MagicMismatch.True() != magic.MagicMismatch(path) {
+		return false
+	}
 	return true
 }
 
 func (f RegistryFilter) Check(p *Process, event Event) bool {
-	//TODO
+	var path string
+	if regEvent, ok := event.(RegistryEvent); !ok {
+		pathParam := event.GetParameterWithOptions("Path", "KeyPath", "TargetPath")
+		if len(pathParam.Buffer) == 0 {
+			if len(f.Path) > 0 || len(f.PathNot) > 0 || len(f.PathDir) > 0 || len(f.PathDirNot) > 0 {
+				return false
+			}
+		} else {
+			path = ReadAnsiStringValue(pathParam.Buffer)
+		}
+	} else {
+		path = regEvent.Path
+	}
+
+	if (path != "" && !CheckPathFilter(path, f.Path, f.PathNot, false)) {
+		return false
+	}
+	if (path != "" && !CheckDirFilter(path, f.PathDir, f.PathNot)) {
+		return false
+	}
+
+	var valName string
+	valParam := event.GetParameterWithOptions("ValueName", "Value")
+	if len(valParam.Buffer) > 0 {
+		valName = ReadAnsiStringValue(valParam.Buffer)
+	} else if len(f.ValueName) > 0 || len(f.ValueNameNot) > 0 {
+		return false
+	}
+	if valName != "" && !CheckPathFilter(valName, f.ValueName, f.ValueNameNot, false) {
+		return false
+	}
 	return true
 }
-w
+
 // Method to implement Condition interface. Returns true if it passed filter
 func (f AllocFilter) Check(p *Process, event Event) bool {
 	//? memory allocation apis should save protection, allocation type and size
@@ -860,6 +900,25 @@ func CheckPathFilter(path string, wanted []string, denied []string, name bool) b
 			return false
 		}
 		if name && filepath.Base(path) == p {
+			return false
+		}
+	}
+	return true
+}
+
+func CheckDirFilter(path string, wanted []string, denied []string) bool {
+	var found bool
+	for _, dir := range wanted {
+		if dir == filepath.Dir(path) {
+			found = true
+			break
+		}
+	}
+	if !found && len(wanted) > 0 {
+		return false
+	}
+	for _, dir := range denied {
+		if dir == filepath.Dir(path) {
 			return false
 		}
 	}

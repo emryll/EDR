@@ -689,3 +689,46 @@ func CheckSections(file *pe.File) ([]StdResult, int, error) {
 	}
 	return results, total, nil
 }
+
+// Magic must be sorted before this is called.
+// Returns the filetype and expected extension based on magic.
+func FetchMagic(path string) (Magic, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return Magic{Type: "(unknown)"}, err
+	}
+	defer file.Close()
+
+	// magicToType was sorted by length in main(), largest first
+	maxLen := len(magicToType[0].Bytes)
+	buf := make([]byte, maxLen)
+	_, err = file.Read(buf)
+	if err != nil {
+		return Magic{Type: "(unknown)"}, err
+	}
+
+	for _, magic := range magicToType {
+		if bytes.Equal(buf[:len(magic.Bytes)], magic.Bytes) {
+			return magic, nil
+		}
+	}
+	return Magic{Type: "(unknown)"}, nil
+}
+
+func (m Magic) HasScaryMagic() bool {
+	for _, ext := range m.Extension {
+		if hasExecutableExtension(ext) {
+			return true
+		}
+	}
+	return false
+}
+
+func (m Magic) MagicMismatch(path string) bool {
+	for _, ext := range m.Extension {
+		if strings.HasSuffix(path, ext) {
+			return false
+		}
+	}
+	return true
+}
