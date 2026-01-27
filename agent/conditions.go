@@ -613,7 +613,11 @@ func (f FileFilter) Check(p *Process, event Event) bool {
 			}
 		}
 	}
-	//TODO: is user path?
+
+	if f.IsUserPath.IsSet() && f.IsUserPath.True() != IsUserWriteable(path) {
+		return false
+	}
+
 	var magic Magic
 	if f.HasScaryMagic.IsSet() || f.MagicMismatch.IsSet() {
 		magic, err = FetchMagic(path)
@@ -623,12 +627,12 @@ func (f FileFilter) Check(p *Process, event Event) bool {
 		}
 	}
 
-	if f.HasScaryMagic.IsSet() {
+	if f.HasScaryMagic.IsSet() && magic.NotEmpty() {
 		if f.HasScaryMagic.True() != (magic.HasScaryMagic() || hasExecutableExtension(path)) {
 			return false
 		}
 	}
-	if f.MagicMismatch.IsSet() && f.MagicMismatch.True() != magic.MagicMismatch(path) {
+	if f.MagicMismatch.IsSet() && magic.NotEmpty() && f.MagicMismatch.True() != magic.MagicMismatch(path) {
 		return false
 	}
 	return true

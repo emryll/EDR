@@ -41,6 +41,9 @@ func TerminateProcess(pid int) error {
 	if err != nil {
 		return err
 	}
+	mu.Lock()
+	delete(processes, pid)
+	mu.Unlock()
 	return nil
 }
 
@@ -62,11 +65,11 @@ func IsSignatureValid(path string) (int, error) {
 	status := strings.TrimSpace(out.String())
 	// Possible status values include: Valid, UnknownError, NotSigned, etc.
 	if status == "Valid" {
-		return 1, nil
+		return HAS_SIGNATURE, nil
 	} else if status == "HashMismatch" {
-		return 2, nil
+		return HASH_MISMATCH, nil
 	}
-	return 0, nil
+	return IS_UNSIGNED, nil
 }
 
 func GetProcessExecutable(pid uint32) (string, error) {
@@ -345,14 +348,14 @@ func SortMagic() {
 func GetMagic(path string, maxLen int) (string, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		return "Unknown", err
+		return "(unknown)", err
 	}
 	defer file.Close()
 
 	buf := make([]byte, maxLen)
 	_, err = file.Read(buf)
 	if err != nil {
-		return "Unknown", err
+		return "(unknown)", err
 	}
 
 	// check if magic is found in list
@@ -361,7 +364,7 @@ func GetMagic(path string, maxLen int) (string, error) {
 			return magic.Type, nil
 		}
 	}
-	return "Unknown", nil
+	return "(unknown)", nil
 }
 
 func GetMimeType(path string) (string, error) {
@@ -622,7 +625,7 @@ func RegisterProcess(pid int, path string) {
 	go StaticScan(pid, false) // no print
 }
 
-func (pattern BehaviorPattern) GetStdResult(bonus int) StdResult {
+func (pattern BehaviorPattern) GetStdResult(bonus int) *StdResult {
 	match := StdResult{
 		Name:        pattern.Name,
 		Description: pattern.Description,
@@ -636,11 +639,11 @@ func (pattern BehaviorPattern) GetStdResult(bonus int) StdResult {
 		if match.Description != "" {
 			match.Name = match.Description
 		} else { // fallback, use first api as name
-			match.Name = pattern.Components[0].GetDefaultName()
+			match.Name = pattern.Components[0].GetName()
 		}
 	}
 
-	return match
+	return &match
 }
 
 func DumpBytes(data []byte) {
@@ -742,52 +745,17 @@ func FnCountImportedByPe(dllPath string, exePath string) (int, error) {
 	return importedFuncs, nil
 }
 
-func CreateAlert(alert int, msg string, score int, pid int) Alert {
-	return Alert{Type: alert, Msg: msg, Score: score, Pid: pid, TimeStamp: time.Now().Unix()}
-}
-
-func (a Alert) PushAlert() {
-	a.Print()
-	processes[a.Pid].ScoreMu.Lock()
-	processes[a.Pid].TotalScore += a.Score
-	processes[a.Pid].ScoreMu.Unlock()
-	AlertMu.Lock()
-	AlertHistory = append(AlertHistory, a)
-	AlertMu.Unlock()
-}
-
-// timerange in seconds. 0 to print entire history
-func PrintAlerts(timeRange int64) {
-	// since you append to end, alerts should be sorted incrementally (newest last)
-	for i := len(AlertHistory) - 1; i >= 0; i-- {
-		now := time.Now().Unix()
-		if timeRange > 0 && now-AlertHistory[i].TimeStamp > timeRange {
-			return
-		}
-		AlertHistory[i].Print(FLAG_PRINT_INFO)
+func IsUserWriteable(path string) bool {
+	// for now, assume if it's not from these known folders, its user writeable
+	systemPaths := []string{
+		os.Getenv("windir"),
+		os.Getenv("ProgramFiles"),
+		os.Getenv("ProgramFiles(x86)"),
 	}
-}
-
-func PrintLastAlerts(n int) {
-	for i := len(AlertHistory) - 1; i > len(AlertHistory)-1-n; i-- {
-		AlertHistory[i].Print(FLAG_PRINT_INFO)
-	}
-}
-
-func (a Alert) Print(args ...int) {
-	flags := make(map[int]bool)
-	if len(args) > 0 {
-		for _, f := range args {
-			flags[f] = true
+	for _, dir := range systemPaths {
+		if strings.HasPrefix(path, dir) {
+			return false
 		}
 	}
-	if len(flags) == 0 {
-		red.Log("\n[ALERT] ")
-		white.Log("%s\n", a.Msg)
-		return
-	}
-	if flags[FLAG_PRINT_INFO] {
-		stamp := time.Unix(a.TimeStamp, 0)
-		fmt.Printf("\n[%s] ALERT - %s\n\t* Process Id: %d\n\t* Score: %d\n", a.Msg, a.Pid, a.Score)
-	}
+	return true
 }

@@ -732,3 +732,10 @@ func (m Magic) MagicMismatch(path string) bool {
 	}
 	return true
 }
+
+func (m Magic) NotEmpty() bool {
+	if m.Type == "" || len(m.Bytes) == 0 || len(m.Extension) == 0 {
+		return false
+	}
+	return true
+}
