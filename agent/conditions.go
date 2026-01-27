@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"unicode"
+
+	"golang.org/x/sys/windows"
 )
 
 //?=======================================================================================+
@@ -65,9 +67,10 @@ const (
 	GROUP_UNKNOWN_API         = 0
 	GROUP_FILE_EVENT          = 1
 	GROUP_REG_EVENT           = 2
-	GROUP_GENERIC_EMPTY       = 3 // no conditions defined to describe this event
-	GROUP_GENERIC_THREAD      = 4 // those that only take thread handle/id as parameter
-	GROUP_GENERIC_FLAGS       = 5 // uint32 flags
+	GROUP_HANDLE_EVENT 		  = 3
+	GROUP_GENERIC_EMPTY       = 4 // no conditions defined to describe this event
+	GROUP_GENERIC_THREAD      = 5 // those that only take thread handle/id as parameter
+	GROUP_GENERIC_FLAGS       = 6 // uint32 flags
 	GROUP_LOCAL_MEM_ALLOC
 	GROUP_REMOTE_MEM_ALLOC
 	GROUP_LOCAL_MEM_PROTECT
@@ -110,12 +113,12 @@ func GetApiGroup(options []string) int {
 		case "CreateProcess", "NtCreateProcess": //TODO: add other options
 			groups[GROUP_CREATE_PROCESS] = true
 
+		case "LoadLibraryA", "LoadLibraryW", "LoadLibraryExA", "LoadLibraryExW", "LdrLoadDll":
+			groups[GROUP_MODULE_OP] = true
 		case "GetModuleHandleA", "GetModuleHandleW", "GetModuleHandleExA", "GetModuleHandleExW":
-			groups[GROUP_GET_MODULE_HANDLE] = true
+			groups[GROUP_MODULE_OP] = true
 		case "GetProcAddress":
 			groups[GROUP_GET_FN_ADDRESS] = true
-		case "LoadLibraryA", "LoadLibraryW", "LoadLibraryExA", "LoadLibraryExW", "LdrLoadDll":
-			groups[GROUP_LOAD_LIBRARY] = true
 		case "CreateToolhelp32Snapshot", "SetDefaultDllDirectories":
 			groups[GROUP_GENERIC_FLAGS] = true
 		case "GetThreadContext", "NtGetContextThread", "SuspendThread", "ResumeThread", "NtSuspendThread", "NtResumeThread":
@@ -167,6 +170,23 @@ func GetApiGroup(options []string) int {
 func GetConditionSets(group int) []Condition {
 	var sets []Condition
 	switch group {
+	case GROUP_FILE_EVENT:
+		var target FileFilter
+		sets = append(sets, target)
+	case GROUP_REG_EVENT:
+		var target RegistryFilter
+		sets = append(sets, target)
+	case GROUP_HANDLE_EVENT:
+		var target HandleFilter
+		sets = append(sets, target)
+
+	case GROUP_MODULE_OP:
+		var target ModuleFilter
+		sets = append(sets, target)
+	case GROUP_GET_FN_ADDRESS:
+		var target GetFnFilter
+		sets = append(sets, target)
+
 	case GROUP_LOCAL_MEM_ALLOC:
 		var alloc AllocFilter
 		sets = append(sets, alloc)
@@ -189,9 +209,6 @@ func GetConditionSets(group int) []Condition {
 		)
 		sets = append(sets, protect, target)
 
-	case GROUP_FILE_EVENT:
-		var target FileFilter
-		sets = append(sets, target)
 	case GROUP_THREAD_CREATE:
 	case GROUP_PROCESS_CREATE:
 	case GROUP_PROCESS_OPEN:
@@ -330,56 +347,85 @@ func (f GenericAccess) Check(p *Process, event Event) bool {
 }
 
 // Method to implement Condition interface. Returns true if it passed filter.
-// There are two different cases, whether its part of universal conditions or not:
-// If this is part of universal filters, event must be nil, and the process in question will be host.
-// If this is a component, event must not be nil, and the process in question will be the one being operated on.
+// There are two different cases: inspecting host process (p), or target process.
+// If you wish to inspect a target process, such as in the context of a remote mem alloc,
+//  then you must pass p as nil, and the event must have a TargetPath parameter.
 func (f ProcessFilter) Check(p *Process, event Event) bool {
-	//? Process structure provides everything necessary
-	var nameFound bool
-	if len(f.Name) == 0 {
-		nameFound = true
+	var (
+		path 	   string
+		err 	   error
+		isSigned   bool
+		isElevated bool
+		integrity  int
+	)
+	//* Start by getting the process path
+	if p == nil {
+		if pidParam := event.GetParameter("TargetPath"); len(pidParam.Buffer) > 0 {
+			pid := binary.LittleEndian.Uint32(pidParam.Buffer)
+			path, err = GetProcessExecutable(pid)
+			if err != nil {
+				red.Log("[ERROR] ")
+				white.Log("Failed to get process executable of process %d: %v\n", pid, err)
+				if len(f.Name) > 0 || len(f.NameNot) > 0 || len(f.Path) > 0 || len(f.PathNot) > 0 ||
+				len(f.Integrity) > 0 || f.IsSigned.IsSet() || f.IsElevated.IsSet() {
+					return false
+				}
+				return true
+			}
+			
+			hProcess, err := windows.OpenProcess(windows.PROCESS_QUERY_INFORMATION, false, pid)
+			if err != nil {
+				red.Log("[ERROR] ")
+				white.Log("Failed to open handle to process %d: %v\n", pid, err)
+				white.Log("[info] Using default values on process %d in process filter check.\n", pid)
+			} else {
+				elev8d := C.IsProcessElevated(uintptr(hProcess))
+				if elev8d == C.int(1) {
+					IsElevated = true
+				}
+				integr := C.GetProcessIntegrityLevel(uintptr(hProcess))
+				integrity = int(integr)
+			}
+		} else if len(f.Name) > 0 || len(f.NameNot) > 0 || len(f.Path) > 0 || len(f.PathNot) > 0 ||
+		len(f.Integrity) > 0 || f.IsSigned.IsSet() || f.IsElevated.IsSet() {
+			return false
+		} else {
+			return true
+		}
+	} else {
+		path = p.Path
+		isSigned = p.IsSigned
+		isElevated = p.IsElevated
+		integrity = int(p.Integrity)
 	}
-	for _, name := range f.Name {
-		if name == filepath.Base(p.Path) || name == p.Path {
-			nameFound = true
+
+	
+	if !CheckPathFilter(path, f.Name, f.NameNot, true) {
+		return false
+	}
+	if !CheckPathFilter(path, f.Path, f.PathNot, false) {
+		return false
+	}
+	if !CheckDirFilter(path, f.Dir, f.DirNot, false) {
+		return false
+	}
+
+	var found bool
+	for _, val := range integrity {
+		if integrity == val {
+			found = true
 			break
 		}
 	}
-	if !nameFound {
+	if !found && len(f.Integrity) > 0 {
 		return false
 	}
 
-	for _, name := range f.NameNot {
-		if name == filepath.Base(p.Path) || name == p.Path {
-			return false
-		}
-	}
-
-	var pathFound bool
-	if len(f.Path) == 0 {
-		pathFound = true
-	}
-	for _, dir := range f.Path {
-		if dir == filepath.Dir(p.Path) || dir == p.Path {
-			pathFound = true
-			break
-		}
-	}
-	if !pathFound {
-		return false
-	}
-	for _, dir := range f.Path {
-		if dir == filepath.Dir(p.Path) || dir == p.Path {
-			return false
-		}
-	}
-
-	// if issigned is false, either is fine
-	if f.IsSigned && !p.IsSigned {
+	if f.IsSigned.IsSet() && f.IsSigned.True() != isSigned {
 		return false
 	}
 
-	if f.IsElevated && !p.IsElevated {
+	if f.IsElevated.IsSet() && f.IsElevated.True() != isElevated {
 		return false
 	}
 	return true
@@ -508,8 +554,8 @@ func (f GetFnFilter) Check(p *Process, event Event) bool {
   return true
 }
 
-func (f GetModuleFilter) Check(p *Process, event Event) bool {
-  modParam := event.GetParameter("Module")
+func (f ModuleFilter) Check(p *Process, event Event) bool {
+  modParam := event.GetParameterWithOptions("Module", "Library")
   var target string
   if len(modParam.Buffer) > 0 {
     target = ReadAnsiStringValue(modParam.Buffer)

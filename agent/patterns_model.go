@@ -136,10 +136,9 @@ type ProcessCreationFilter struct {
 	FlagsNot  []uint32
 	Target    []string
 	TargetNot []string
-	TokenUsed bool // token_used. signifies a token was specified.
+	TokenUsed Bool // token_used. signifies a token was specified.
 }
 
-//TODO
 // "target_process" / "process" conditions
 // This should only be for components operating on a process (remote alloc, process creation, etc.)
 type ProcessFilter struct {
@@ -147,9 +146,11 @@ type ProcessFilter struct {
 	NameNot    []string
 	Path       []string
 	PathNot    []string
+	Dir        []string
+	DirNot     []string
 	Integrity  []int // which integrity levels are needed for a match (enums)
-	IsSigned   bool
-	IsElevated bool
+	IsSigned   Bool
+	IsElevated Bool
 }
 
 //TODO
@@ -162,10 +163,11 @@ type FileFilter struct {
 	DirNot        []string
 	Extension     []string
 	ExtNot        []string
-	IsSigned      bool
-	IsUserPath    bool // user writeable path, no elevated privileges needed
-	HasScaryMagic bool // magic of an executable file format
-	MagicMatch    bool
+	IsSigned      Bool
+	HashMismatch  Bool
+	IsUserPath    Bool // user writeable path, no elevated privileges needed
+	HasScaryMagic Bool // magic of an executable file format
+	MagicMismatch Bool
 }
 
 //TODO
@@ -179,8 +181,8 @@ type AllocFilter struct {
 	AllocTypeNot   []uint32
 	TargetPath     []uint32
 	TargetPathNot  []uint32
-	IsImageSection bool
-	IsRemoteAlloc  bool
+	IsImageSection Bool
+	IsRemoteAlloc  Bool
 }
 
 //TODO
@@ -196,7 +198,6 @@ type GetFnFilter struct {
 	FunctionNot []string
 }
 
-//TODO
 // GetModuleHandle, or LoadLibrary
 type ModuleFilter struct {
 	Module    []string
@@ -218,8 +219,14 @@ type PTCreationFilter struct {
 	CreationFlagsNot []uint32 // enums
 }
 
-//TODO: registry filter
 type RegistryFilter struct {
+	Path         []string
+	PathNot      []string
+	PathDir      []string // recursive version of path
+	PathDirNot   []string
+	ValueName    []string
+	ValueNameNot []string
+	//TODO: others?
 }
 
 type HandleFilter struct {
