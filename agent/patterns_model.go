@@ -101,139 +101,153 @@ type Condition interface {
 }
 
 type UniversalConditions struct {
-	Parent    []string
-	ParentNot []string
-	Process   *ProcessFilter
+	Parent    []string `yaml:"parent"`
+	ParentNot []string `yaml:"parent_not"`
+	//TODO: child
+	Process *ProcessFilter `yaml:"host_process"`
 	//IsRemote  	 bool
 	//? ^for this one you need to implement calling thread collection into all telemetry packets (add tid field to header)
-	SessionId    []uint32
-	SessionIdNot []uint32
-	User         []string
-	UserNot      []string
+	SessionId    []uint32 `yaml:"session_id"`
+	SessionIdNot []uint32 `yaml:"session_id_not"`
+	User         []string `yaml:"user"`
+	UserNot      []string `yaml:"user_not"`
 }
 
 // condition set for generic 32-bit flags
 type GenericFlags struct {
-	Flags    []uint32 // flags
-	FlagsNot []uint32 // flags_not
+	Flags    []uint32 `yaml:"flags"`
+	FlagsNot []uint32 `yaml:"flags_not"`
 }
 
 type GenericAccess struct {
-	Access    []uint32 // access
-	AccessNot []uint32 // access_not
+	Access    []uint32 `yaml:"access"`
+	AccessNot []uint32 `yaml:"access_not"`
 }
 
 // this is special case from generics flags because of the create suspended
 type ThreadCreationFilter struct {
-	Flags           []uint32 // flags
-	FlagsNot        []uint32 // flags_not
-	CreateSuspended bool     // create_suspended. could be flag or bool with NtCreateThread
+	Flags           []uint32 `yaml:"flags"`
+	FlagsNot        []uint32 `yaml:"flags_not"`
+	CreateSuspended Bool     `yaml:"create_suspended"`
 }
 
 // parent spoofing is not covered here, because it's an in-built mechanism, not reliant on patterns
 type ProcessCreationFilter struct {
-	Flags     []uint32
-	FlagsNot  []uint32
-	Target    []string
-	TargetNot []string
-	TokenUsed Bool // token_used. signifies a token was specified.
+	Flags     []uint32 `yaml:"flags"`
+	FlagsNot  []uint32 `yaml:"flags_not"`
+	Target    []string `yaml:"path"`
+	TargetNot []string `yaml:"path_not"`
+	TargetDir []string `yaml:"dir"`
+	DirNot    []string `yaml:"dir_not"`
+	TokenUsed Bool     `yaml:"token_used"` // signifies a token was specified.
 }
 
 // "target_process" / "process" conditions
 // This should only be for components operating on a process (remote alloc, process creation, etc.)
 type ProcessFilter struct {
-	Name       []string
-	NameNot    []string
-	Path       []string
-	PathNot    []string
-	Dir        []string
-	DirNot     []string
-	Integrity  []int // which integrity levels are needed for a match (enums)
-	IsSigned   Bool
-	IsElevated Bool
+	Name       []string `yaml:"name"`
+	NameNot    []string `yaml:"name_not"`
+	Path       []string `yaml:"path"`
+	PathNot    []string `yaml:"path_not"`
+	Dir        []string `yaml:"dir"`
+	DirNot     []string `yaml:"dir_not"`
+	Integrity  []int    `yaml:"integrity"`
+	IsSigned   Bool     `yaml:"is_signed"`
+	IsElevated Bool     `yaml:"is_elevated"`
 }
 
-//TODO
 // "target_file" condition
 // Describes a file being operated on => requires component to be file operation
 type FileFilter struct {
-	Path          []string
-	PathNot       []string
-	Dir           []string
-	DirNot        []string
-	Extension     []string
-	ExtNot        []string
-	IsSigned      Bool
-	HashMismatch  Bool
-	IsUserPath    Bool // user writeable path, no elevated privileges needed
-	HasScaryMagic Bool // magic of an executable file format
-	MagicMismatch Bool
+	Path          []string `yaml:"path"`
+	PathNot       []string `yaml:"path_not"`
+	Dir           []string `yaml:"dir"`
+	DirNot        []string `yaml:"dir_not"`
+	Extension     []string `yaml:"extension"`
+	ExtNot        []string `yaml:"extension_not"`
+	IsSigned      Bool     `yaml:"is_signed"`
+	HashMismatch  Bool     `yaml:"hash_mismatch"`
+	IsUserPath    Bool     `yaml:"is_user_path"`
+	HasScaryMagic Bool     `yaml:"has_scary_magic"`
+	MagicMismatch Bool     `yaml:"magic_mismatch"`
 }
 
-//TODO
 // conditions for memory allocation only
 type AllocFilter struct {
-	SizeMin        int64
-	SizeMax        int64
-	Protection     []uint32 // enums
-	ProtectionNot  []uint32
-	AllocType      []uint32
-	AllocTypeNot   []uint32
-	TargetPath     []uint32
-	TargetPathNot  []uint32
-	IsImageSection Bool
-	IsRemoteAlloc  Bool
+	Protection    []uint32 `yaml:"protection"`
+	ProtectionNot []uint32 `yaml:"protection_not"`
+	AllocType     []uint32 `yaml:"alloc_type"`
+	AllocTypeNot  []uint32 `yaml:"alloc_type_not"`
+	IsRemoteAlloc Bool     `yaml:"remote_alloc"`
+	SizeMin       int64    `yaml:"size_min"`
+	SizeMax       int64    `yaml:"size_max"`
+	//IsImageSection Bool     `yaml:"is_image_section"`
 }
 
-//TODO
 // conditions for changing memory page protections
 type ProtectFilter struct {
-	OldProtection []uint32
-	NewProtection []uint32
+	OldProtection    []uint32 `yaml:"old_protect"`
+	NewProtection    []uint32 `yaml:"new_protect"`
+	OldProtectionNot []uint32 `yaml:"old_protect_not"`
+	NewProtectionNot []uint32 `yaml:"new_protect_not"`
 }
 
 // specifically for GetProcAddress
 type GetFnFilter struct {
-	Function    []string
-	FunctionNot []string
+	Function    []string `yaml:"function"`
+	FunctionNot []string `yaml:"function_not"`
 }
 
 // GetModuleHandle, or LoadLibrary
 type ModuleFilter struct {
-	Module    []string
-	ModuleNot []string
+	Module    []string `yaml:"module"`
+	ModuleNot []string `yaml:"module_not"`
 }
 
-//TODO
 // Remote memory read or write
-type RemoteMemRwFilter struct {
+type ReadWriteFilter struct {
 	// process filter additionally; not included here
-	SizeMin uint64
-	SizeMax uint64
+	SizeMin uint64 `yaml:"size_min"`
+	SizeMax uint64 `yaml:"size_max"`
 	//might want to add a function to check if it points to certain module
 }
 
-// for creating process or thread (seperate one for files/reg)
-type PTCreationFilter struct {
-	CreationFlags    []uint32 // enums
-	CreationFlagsNot []uint32 // enums
+type ApcFilter struct {
+	//TODO:
+	Flags    []uint32
+	FlagsNot []uint32
+	Unbacked Bool
 }
 
 type RegistryFilter struct {
-	Path         []string
-	PathNot      []string
-	PathDir      []string // recursive version of path
-	PathDirNot   []string
-	ValueName    []string
-	ValueNameNot []string
+	Path         []string `yaml:"path"`
+	PathNot      []string `yaml:"path_not"`
+	PathDir      []string `yaml:"dir"` // recursive version of path
+	PathDirNot   []string `yaml:"dir_not"`
+	ValueName    []string `yaml:"value_name"`
+	ValueNameNot []string `yaml:"value_name_not"`
 	//TODO: others?
 }
 
 type HandleFilter struct {
-	Access        []uint32
-	AccessNot     []uint32
-	TargetPath    []string // only if thread or process
-	TargetPathNot []string // only if thread or process
+	Access        []uint32 `yaml:"access"`
+	AccessNot     []uint32 `yaml:"access_not"`
+	TargetPath    []string `yaml:"target_path"`     // only if thread or process
+	TargetPathNot []string `yaml:"target_path_not"` // only if thread or process
+	TargetDir     []string `yaml:"target_dir"`      // only if thread or process
+	TargetDirNot  []string `yaml:"target_dir_not"`  // only if thread or process
+}
+
+// DuplicateToken
+type TokenDupFilter struct {
+	ImpersonationLevel    []uint32 // SECURITY_IMPERSONATION_LEVEL
+	ImpersonationLevelNot []uint32
+	//TODO: info about the token handle to be duplicated
+}
+
+type HandleDupFilter struct {
+	Type    []uint32 // handle type
+	TypeNot []uint32
 }
 
 // simple getter methods for Component interface
