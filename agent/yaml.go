@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	yaml "gopkg.in/yaml.v3"
@@ -30,6 +31,8 @@ func (b *Bool) UnmarshalYAML(node *yaml.Node) error {
 	b.Value = node.Value
 	return nil
 }
+
+type Bitmask uint32 // custom type allowing for string enums in yaml
 
 // This is the outer function, which should be used to load behavior patterns.
 // It will first make sure each file follows valid syntax and doesn't break any rules.
@@ -197,4 +200,85 @@ func findNodeInMapping(key string, node *yaml.Node) *yaml.Node {
 		}
 	}
 	return newNode
+}
+
+func (b *Bitmask) UnmarshalYAML(node *yaml.Node) error {
+	var result Bitmask
+	switch node.Kind {
+	// a single string, for example "PROCESS_VM_WRITE | PROCESS_CREATE_THREAD", or raw value
+	case yaml.ScalarNode:
+		mask, err := ReadBitmask(node)
+		if err != nil {
+			return err
+		}
+		result |= mask
+
+	// list of bitmask flags
+	case yaml.SequenceNode:
+		for _, elem := range node.Content {
+			if elem.Kind != yaml.ScalarNode {
+				return fmt.Errorf("invalid YAML node for bitmask value: %s (%v)", GetKind(elem.Kind), elem.Value)
+			}
+			mask, err := ReadBitmask(elem)
+			if err != nil {
+				return err
+			}
+			result |= mask
+		}
+
+	default:
+		return fmt.Errorf("invalid YAML node for bitmask value: %s (%v)", GetKind(node.Kind), node.Value)
+	}
+	*b = result
+	return nil
+}
+
+// Interpret a string as a Bitmask. Takes into account enums, raw values and "a | b"
+func ReadBitmask(node *yaml.Node) (Bitmask, error) {
+	var result Bitmask
+	parts := strings.Split(node.Value, "|")
+	for _, part := range parts {
+		key := strings.TrimSpace(strings.ToUpper(part))
+		numerical := BitmaskAsNumber(part)
+		if numerical > 0 {
+			result |= numerical
+		} else {
+			val, ok := enums[key]
+			if !ok {
+				return 0, fmt.Errorf("unknown bitmask value: %q", node.Value)
+			}
+			result |= val
+		}
+	}
+	return result, nil
+}
+
+// Check if bitmask is an enum or raw value. enum returns 0
+func BitmaskAsNumber(value string) Bitmask {
+	str := strings.TrimSpace(value)
+	if str == "" {
+		return 0
+	}
+
+	val, err := strconv.ParseUint(str, 0, 64)
+	if err != nil {
+		return 0
+	}
+	return (Bitmask)(val)
+}
+
+func GetKind(kind yaml.Kind) string {
+	switch kind {
+	case yaml.DocumentNode:
+		return "DocumentNode"
+	case yaml.MappingNode:
+		return "MappingNode"
+	case yaml.ScalarNode:
+		return "ScalarNode"
+	case yaml.SequenceNode:
+		return "SequenceNode"
+	case yaml.AliasNode:
+		return "AliasNode"
+	}
+	return ""
 }
