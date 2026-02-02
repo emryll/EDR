@@ -3,9 +3,33 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	yaml "gopkg.in/yaml.v3"
 )
+
+// Custom boolean type for yaml.
+// Makes it so that default value is "not set" instead of false
+type Bool struct {
+	Value string `yaml:",inline"`
+}
+
+func (b Bool) IsSet() bool {
+	return b.Value != ""
+}
+
+func (b Bool) True() bool {
+	return strings.ToLower(b.Value) == "true"
+}
+
+// this tells yaml package how to parse Bool values
+func (b *Bool) UnmarshalYAML(node *yaml.Node) error {
+	if node.Kind != yaml.ScalarNode {
+		return fmt.Errorf("expected scalar, but node is %s", GetKind(node.Kind))
+	}
+	b.Value = node.Value
+	return nil
+}
 
 // This is the outer function, which should be used to load behavior patterns.
 // It will first make sure each file follows valid syntax and doesn't break any rules.
