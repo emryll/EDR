@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/binary"
+	"fmt"
 	"path/filepath"
 )
 
@@ -32,9 +34,10 @@ func (p *Process) CheckBehaviorPatterns() Result {
 		} else if len(pattern.Components) == 1 && !components[pattern.Components[0].GetName()].Exists {
 			continue // this will later be replaced by early exit in component checks
 		}
+		//TODO: add to process history
 		match := pattern.GetStdResult(bonus)
 		matches.TotalScore += match.Score
-		matches.Results = append(matches.Results, match)
+		matches.Results = append(matches.Results, *match)
 	}
 	return matches
 }
@@ -61,9 +64,9 @@ Options:
 			}
 		}
 		//* 4. Collect timestamps of matches, prepare result
-		result.FirstTimestamps = append(result.FirstTimestamps, api.TimeStamp)
+		result.LeftEdge = append(result.LeftEdge, p.APICalls[fn])
 		for _, a := range api.History {
-			result.FirstTimestamps = append(result.FirstTimestamps, a.TimeStamp)
+			result.LeftEdge = append(result.LeftEdge, a)
 		}
 		result.Exists = true
 		result.Bonus = c.Bonus
@@ -114,9 +117,9 @@ Events:
 			}
 		}
 		//* 4. Collect timestamps of matches, prepare result
-		result.FirstTimestamps = append(result.FirstTimestamps, event.TimeStamp)
+		result.LeftEdge = append(result.LeftEdge, event)
 		for _, e := range event.History {
-			result.FirstTimestamps = append(result.FirstTimestamps, e.TimeStamp)
+			result.LeftEdge = append(result.LeftEdge, e)
 		}
 		result.Exists = true
 		result.Bonus = c.Bonus
@@ -159,9 +162,9 @@ Events:
 			}
 		}
 		//* 4. Collect timestamps of matches, prepare result
-		result.FirstTimestamps = append(result.FirstTimestamps, event.TimeStamp)
+		result.LeftEdge = append(result.LeftEdge, event)
 		for _, e := range event.History {
-			result.FirstTimestamps = append(result.FirstTimestamps, e.TimeStamp)
+			result.LeftEdge = append(result.LeftEdge, e)
 		}
 		result.Exists = true
 		result.Bonus = c.Bonus
@@ -177,12 +180,38 @@ func (c HandleComponent) GetResult(p *Process) *ComponentResult {
 
 	//TODO: Get all handles of this process (same object type)
 	//TODO: Check conditions
-	1
-	return result
+	return &result
 }
 
 func (p Parameter) GetValue() any {
 	switch p.Type {
-	//TODO
+	case PARAMETER_ANSISTRING:
+		return ReadAnsiStringValue(p.Buffer)
+	case PARAMETER_BOOLEAN:
+		return binary.LittleEndian.Uint32(p.Buffer) == 1
+	case PARAMETER_UINT32:
+		return binary.LittleEndian.Uint32(p.Buffer)
+	case PARAMETER_UINT64:
+		return binary.LittleEndian.Uint64(p.Buffer)
+	case PARAMETER_POINTER:
+		return fmt.Sprintf("%p", binary.LittleEndian.Uint64(p.Buffer))
+	case PARAMETER_BYTES:
+		return p.Buffer
 	}
+	return "(empty GetValue)"
+}
+
+// setting verbose as true displays corresponding timeline of events
+func (p PatternMatch) Print(verbose ...bool) {
+	fmt.Printf("\n%s\n\n[*] Process %d: %s\n\tCategory: %v\n\t? %s\n\n%s\n", stars, p.Pid, p.Result.Name, p.Result.Category[:], p.Result.Description, stars)
+	if len(verbose) > 0 && verbose[0] {
+		for i, event := range p.Events {
+			event.Print(p.Pid)
+			if len(p.Events) > i+1 {
+				fmt.Printf("\t\t|\n\t\t|\n\t\t▼\n")
+			}
+		}
+		return
+	}
+	fmt.Printf("\n%s\n", stars)
 }

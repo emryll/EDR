@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/binary"
 	"io"
 	"sync"
 	"unsafe"
@@ -14,28 +13,38 @@ const VERSION = "0.0.1-demo"
 
 type Process struct {
 	Path           string
-	ProcessId 	   uint32
+	ProcessId      uint32
 	ParentPid      uint32
 	ParentPath     string
 	IsSigned       bool
 	IsElevated     bool
 	Integrity      uint32
 	StaticScanDone bool // represents the first static scan to avoid unnecessary extra scans. might also want a file scan history
-	Score 		   Score
+	Score          Score
 	ApiMu          sync.Mutex
 	// this is collected telemetry data history
-	APICalls map[string]ApiEvent // key: api call name
+	APICalls map[string]*ApiEvent // key: api call name
 	// to make behavioral patterns more flexible, file events are organized into directories,
 	// so this will point to a directory map, which has all the files. key is the filename
 	FileEvents FileTelemetryCatalog
-	RegEvents RegTelemetryCatalog
+	RegEvents  RegTelemetryCatalog
 	// these are the matched patterns that make up the total score
-	PatternMatches map[string]*StdResult // key: name of pattern
-	LastHeartbeat  int64                 // telemetry dll heartbeat
+	PatternMatches map[string]PatternMatch // key: name of pattern
+	LastHeartbeat  int64                   // telemetry dll heartbeat
+}
+
+type RegTelemetryCatalog struct {
+	RegPathTree   map[string][]*RegistryEvent // path
+	RegActionTree map[int][]*RegistryEvent    // action
+}
+
+type FileTelemetryCatalog struct {
+	FilePathTree   map[string]map[string]map[int]*FileEvent // map[dir]map[filename]map[action]
+	FileActionTree map[int][]*FileEvent                     // search by action
 }
 
 type Score struct {
-	Mu 			sync.Mutex
+	Mu          sync.Mutex
 	TotalScore  int
 	StaticScore int
 	RansomScore int
@@ -49,7 +58,14 @@ type Result struct {
 	Results    []StdResult
 }
 
-// universal type for portraying results
+// wrapper to allow for "timeline reconstruction". This is how matches should be stored
+type PatternMatch struct {
+	Result *StdResult
+	Events []Event
+	Pid    uint32
+}
+
+// universal type for portraying results. Portrays a matched pattern: YARA, static, behavioral
 type StdResult struct {
 	Name        string   // short name of pattern
 	Description string   // what the pattern match means
@@ -57,8 +73,8 @@ type StdResult struct {
 	Category    []string // for example "evasion"; describes what sort of pattern it was
 	Score       int      // actual score for how likely its malicious
 	Severity    int      // 0, 1, 2 (low, medium, high); only for colors, doesnt affect anything else
-	Count       int
-	TimeStamp   int64 // latest
+	Count       int      // how many times this has appeared
+	TimeStamp   int64    // time of latest occurance
 }
 
 // embedded for custom log method
@@ -141,11 +157,7 @@ type EtwHeader struct {
 	Type uint32
 }
 
-type History[T any] interface {
-	GetTime() int64
-	HistoryPtr() *[]T
-}
-
+/*
 type ApiArg struct {
 	Type    int
 	RawData [API_ARG_MAX_SIZE]byte
@@ -156,29 +168,7 @@ type ApiArgV2 struct {
 	Name    string
 	RawData [API_ARG_MAX_SIZE]byte
 }
-
-// describe an api call intercepted by hooks
-type ApiEvent struct {
-	ThreadId   uint32
-	DllName    string
-	FuncName   string
-	TimeStamp  int64
-	Parameters map[string]Parameter
-	History    []ApiEvent // sorted by timestamp
-}
-
-// what is the point of this method?
-func (a ApiEvent) GetTime() int64 {
-	return a.TimeStamp
-}
-
-func (a ApiEvent) HistoryPtr() *[]ApiEvent {
-	return &a.History
-}
-
-func (a ApiEvent) GetEventType() int {
-	return TM_TYPE_API_CALL
-}
+*/
 
 // results of an integrity check of a modules .text section
 type TextCheckData struct {
@@ -192,68 +182,7 @@ type IatIntegrityData struct {
 	Address  uint64
 }
 
-type RegTelemetryCatalog struct {
-	RegPathTree map[string][]*RegistryEvent // path
-	RegActionTree map[int][]*RegistryEvent // action
-}
-
-type FileTelemetryCatalog struct {
-	FilePathTree   map[string]map[string]map[int]*FileEvent // map[dir]map[filename]map[action]
-	FileActionTree map[int][]*FileEvent                     // search by action
-}
-
-type FileEvent struct {
-	Path      string
-	Action    uint32
-	TimeStamp int64
-  Parameters map[string]Parameter // is this needed?
-	History   []FileEvent
-}
-
 // why is this needed????
-func (f FileEvent) GetTime() int64 {
-	return f.TimeStamp
-}
-
-func (f FileEvent) GetParameter(name string) Parameter {
-  if param, exists := f.Parameters[name]; exists {
-    return param
-  }
-  if name == "FilePath" || name == "TargetPath" || name == "Path" || name == "TargetFile" {
-    param := Parameter{Type: PARAMETER_STRING, Name: name, Buffer: []byte(f.Path)}
-    param.Buffer = append(param.Buffer, '\0')
-    return param
-  }
-  return Parameter{}
-}
-
-func (f FileEvent) GetEventType() int {
-	return TM_TYPE_FILE_EVENT
-}
-
-type RegistryEvent struct {
-	Path      string
-	Action    uint32
-	TimeStamp int64
-  Parameters map[string]Parameter
-	History   []RegistryEvent
-}
-
-func (r RegistryEvent) GetTime() int64 {
-	return r.TimeStamp
-}
-
-func (r RegistryEvent) GetParameter(name string) Parameter {
-  if param, exists := f.Parameters[name]; exists {
-    return param
-  }
-  return Parameter{}
-}
-
-func (r RegistryEvent) GetEventType() int {
-	return TM_TYPE_REG_EVENT
-}
-
 /*
 	type PatternResult struct {
 		Name      string
@@ -280,49 +209,19 @@ type RemoteModule struct {
 
 // go version of THREAD_ENTRY, for thread scans
 type ThreadEntry struct {
-	ThreadId 	 uint32
-	ProcessId 	 uint32
-	Reason 		 uint32
+	ThreadId     uint32
+	ProcessId    uint32
+	Reason       uint32
 	StartAddress uintptr
-}
-
-// This also implements Event interface because its a component type, for now.
-type HandleEntry struct {
-	Handle uintptr
-	Type   uint32
-	Pid    uint32
-	Access uint32
-}
-
-func (handle HandleEntry) GetEventType() int {
-	return EVENT_TYPE_HANDLE
-}
-
-func (handle HandleEntry) GetParameter(name string) Parameter {
-	switch name {
-	case "Access", "DesiredAccess":
-		param := Parameter{Name: name, Type: PARAMETER_UINT32}
-		param.Buffer = binary.LittleEndian.AppendUint32(param.Buffer, handle.Access)
-		return param
-	case "Type", "ObjectType", "HandleType":
-		param := Parameter{Name: name, Type: PARAMETER_UINT32}
-		param.Buffer = binary.LittleEndian.AppendUint32(param.Buffer, handle.Type)
-		return param
-	case "Pid", "CallingPid", "Owner", "OwningPid":
-		param := Parameter{Name: name, Type: PARAMETER_UINT32}
-		param.Buffer = binary.LittleEndian.AppendUint32(param.Buffer, handle.Pid)
-		return param
-	}
-	return Parameter{}
 }
 
 type Alert struct {
 	TimeStamp int64
-	Caption string
-	Message string
-	Score int
-	Type int
-	Pid int
+	Caption   string
+	Message   string
+	Score     int
+	Type      int
+	Pid       int
 }
 
 func (m *RemoteModule) GetName() string {
@@ -334,6 +233,7 @@ func (m *RemoteModule) GetName() string {
 }
 
 type Magic struct {
-	Bytes []byte
-	Type  string // databasse of magic bytes is in consts.go
+	Bytes     []byte
+	Type      string // database of magic bytes is in consts.go
+	Extension []string
 }
