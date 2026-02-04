@@ -29,8 +29,8 @@ type Process struct {
 	FileEvents FileTelemetryCatalog
 	RegEvents  RegTelemetryCatalog
 	// these are the matched patterns that make up the total score
-	PatternMatches map[string]PatternMatch // key: name of pattern
-	LastHeartbeat  int64                   // telemetry dll heartbeat
+	PatternMatches map[string]*PatternMatch // key: name of pattern
+	LastHeartbeat  int64                    // telemetry dll heartbeat
 }
 
 type RegTelemetryCatalog struct {

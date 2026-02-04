@@ -202,8 +202,6 @@ func (header TelemetryHeader) Log(dataBuf []byte) {
 				time.Sleep(time.Duration(300) * time.Millisecond)
 			}
 			TerminateProcess(int(header.Pid))
-			delete(processes, int(header.Pid))
-			//TODO delete process from tracking list
 			white.Log("[i] Terminated process %d\n", header.Pid)
 		}
 	case TM_TYPE_FILE_EVENT:
@@ -319,9 +317,7 @@ func (r Result) Log(scanName string, pid int) {
 
 	_, pidExists := processes[pid]
 	if pidExists {
-		processes[pid].ScoreMu.Lock()
-		processes[pid].TotalScore += r.TotalScore
-		processes[pid].ScoreMu.Unlock()
+		processes[pid].IncrementScore(r.TotalScore)
 	}
 	//TODO: check if score exceeds thresholds, make a function for this
 
@@ -418,4 +414,14 @@ func (c *Color) Log(format string, args ...any) {
 		}
 	}
 	logMu.Unlock()
+}
+
+func (p *Process) AddToHistory(result *StdResult, components map[string]*ComponentResult) *PatternMatch {
+	var match = &PatternMatch{Pid: p.ProcessId, Result: result}
+	for _, comp := range components {
+		match.Events = append(match.Events, comp.LeftEdge...)
+		match.Events = append(match.Events, comp.RightEdge...)
+	}
+	p.PatternMatches[result.Name] = match
+	return match
 }
