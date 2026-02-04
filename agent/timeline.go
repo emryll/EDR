@@ -140,12 +140,12 @@ func ReduceConditionalBranch(orBlock []string, components map[string]*ComponentR
 		result.Exists = true
 
 		// if this component is a reduced one, it has two edges in the timeline, that must be taken into account.
-		if comp.LastTimestamps == nil || len(comp.LastTimestamps) == 0 {
-			result.FirstTimestamps = append(result.FirstTimestamps, comp.FirstTimestamps...)
-			result.LastTimestamps = append(result.LastTimestamps, comp.FirstTimestamps...)
+		if comp.RightEdge == nil || len(comp.RightEdge) == 0 {
+			result.LeftEdge = append(result.LeftEdge, comp.LeftEdge...)
+			result.RightEdge = append(result.RightEdge, comp.LeftEdge...)
 		} else { // normal ones are copied to both lists so they work on both sides of the timeline comparison
-			result.FirstTimestamps = append(result.FirstTimestamps, comp.FirstTimestamps...)
-			result.LastTimestamps = append(result.LastTimestamps, comp.LastTimestamps...)
+			result.LeftEdge = append(result.LeftEdge, comp.LeftEdge...)
+			result.RightEdge = append(result.RightEdge, comp.RightEdge...)
 		}
 	}
 	return result
@@ -208,33 +208,33 @@ func ReduceFlatBlock(logic []string, components map[string]*ComponentResult) Com
 		}
 
 		var (
-			prevStamps         []int64
+			prevStamps         []Event
 			validTimelineFound bool
 		)
 		// if it has stamps listed in the end "edge", compare against those (i.e. reduced blocks)
-		if components[logic[i-2]].LastTimestamps == nil || len(components[logic[i-2]].LastTimestamps) == 0 {
-			prevStamps = components[logic[i-2]].FirstTimestamps
+		if components[logic[i-2]].RightEdge == nil || len(components[logic[i-2]].RightEdge) == 0 {
+			prevStamps = components[logic[i-2]].LeftEdge
 		} else {
-			prevStamps = components[logic[i-2]].LastTimestamps
+			prevStamps = components[logic[i-2]].RightEdge
 		}
 		// iterate the stamps of current component, check if there is any timestamps from
 		// previous component which are not greater than the current stamp. If none are found it is removed.
 	Current:
-		for n := len(comp.FirstTimestamps) - 1; n >= 0; n-- {
+		for n := len(comp.LeftEdge) - 1; n >= 0; n-- {
 			for j := len(prevStamps) - 1; j >= 0; j-- {
-				if comp.FirstTimestamps[n] >= prevStamps[j] {
+				if comp.LeftEdge[n].GetTimestamp() >= prevStamps[j].GetTimestamp() {
 					validTimelineFound = true
 					continue Current
 				}
 			}
 			// no valid continuation from previous component was found, so this timeline is not possible.
 			// First remove corresponding invalid timelines from the other edge, in case of reduced components.
-			for j := len(comp.LastTimestamps) - 1; j >= 0; j-- {
-				if comp.LastTimestamps[j] <= comp.FirstTimestamps[n] {
-					components[logic[i]].LastTimestamps = RemoveSliceMember(components[logic[i]].LastTimestamps, j)
+			for j := len(comp.RightEdge) - 1; j >= 0; j-- {
+				if comp.RightEdge[j].GetTimestamp() <= comp.LeftEdge[n].GetTimestamp() {
+					components[logic[i]].RightEdge = RemoveSliceMember(components[logic[i]].RightEdge, j)
 				}
 			}
-			components[logic[i]].FirstTimestamps = RemoveSliceMember(components[logic[i]].FirstTimestamps, n)
+			components[logic[i]].LeftEdge = RemoveSliceMember(components[logic[i]].LeftEdge, n)
 		}
 
 		if !validTimelineFound {
@@ -253,8 +253,8 @@ func ReduceFlatBlock(logic []string, components map[string]*ComponentResult) Com
 	//* so since it reached this point, all components fit into a valid timeline
 	//* now add the edge timestamps and return positive result (match)
 	result.Exists = true
-	result.FirstTimestamps = append(result.FirstTimestamps, components[logic[0]].FirstTimestamps...)
-	result.LastTimestamps = append(result.LastTimestamps, components[logic[len(logic)-1]].LastTimestamps...)
+	result.LeftEdge = append(result.LeftEdge, components[logic[0]].LeftEdge...)
+	result.RightEdge = append(result.RightEdge, components[logic[len(logic)-1]].RightEdge...)
 	return result
 }
 
