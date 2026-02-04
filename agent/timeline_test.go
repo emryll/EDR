@@ -63,19 +63,19 @@ func CreateTestTimeline(option int) Test {
 			ExpectedMatch: true,
 		}
 		test.Components["c1"] = &ComponentResult{
-			Exists:          true,
-			Required:        true,
-			FirstTimestamps: []int64{1275, 2590, 12842},
+			Exists:   true,
+			Required: true,
+			LeftEdge: []Event{ApiEvent{TimeStamp: 1275}, FileEvent{TimeStamp: 2590}, RegistryEvent{TimeStamp: 12842}},
 		}
 		test.Components["c2"] = &ComponentResult{
-			Exists:          true,
-			Required:        true,
-			FirstTimestamps: []int64{579, 11002, 4820, 2200},
+			Exists:   true,
+			Required: true,
+			LeftEdge: []Event{ApiEvent{TimeStamp: 579}, ApiEvent{TimeStamp: 11002}, FileEvent{TimeStamp: 4820}, ApiEvent{TimeStamp: 2200}},
 		}
 		test.Components["c3"] = &ComponentResult{
-			Exists:          true,
-			Required:        true,
-			FirstTimestamps: []int64{1870, 12800, 4000},
+			Exists:   true,
+			Required: true,
+			LeftEdge: []Event{ApiEvent{TimeStamp: 1870}, ApiEvent{TimeStamp: 12800}, ApiEvent{TimeStamp: 4000}},
 		}
 		return test
 
@@ -88,24 +88,24 @@ func CreateTestTimeline(option int) Test {
 		}
 
 		test.Components["c1"] = &ComponentResult{
-			Exists:          true,
-			Required:        true,
-			FirstTimestamps: []int64{1275, 2590, 12842},
+			Exists:   true,
+			Required: true,
+			LeftEdge: []Event{ApiEvent{TimeStamp: 1275}, ApiEvent{TimeStamp: 2590}, ApiEvent{TimeStamp: 12842}},
 		}
 		test.Components["c2"] = &ComponentResult{ // not a match
-			Exists:          true,
-			Required:        true,
-			FirstTimestamps: []int64{579, 420},
+			Exists:   true,
+			Required: true,
+			LeftEdge: []Event{ApiEvent{TimeStamp: 579}, ApiEvent{TimeStamp: 420}},
 		}
 		test.Components["c3"] = &ComponentResult{
-			Exists:          true,
-			Required:        true,
-			FirstTimestamps: []int64{579, 11002, 4820, 2200},
+			Exists:   true,
+			Required: true,
+			LeftEdge: []Event{FileEvent{TimeStamp: 579}, FileEvent{TimeStamp: 11002}, FileEvent{TimeStamp: 4820}, FileEvent{TimeStamp: 2200}},
 		}
 		test.Components["c4"] = &ComponentResult{
-			Exists:          true,
-			Required:        true,
-			FirstTimestamps: []int64{1870, 12800, 4000},
+			Exists:   true,
+			Required: true,
+			LeftEdge: []Event{FileEvent{TimeStamp: 1870}, FileEvent{TimeStamp: 12800}, FileEvent{TimeStamp: 4000}},
 		}
 		return test
 
@@ -117,32 +117,32 @@ func CreateTestTimeline(option int) Test {
 			ExpectedMatch: true,
 		}
 		test.Components["c1"] = &ComponentResult{
-			Exists:          true,
-			Required:        true,
-			FirstTimestamps: []int64{1275, 2590, 12842},
+			Exists:   true,
+			Required: true,
+			LeftEdge: []Event{FileEvent{TimeStamp: 1275}, FileEvent{TimeStamp: 2590}, FileEvent{TimeStamp: 12842}},
 		}
 		test.Components["c2"] = &ComponentResult{ // not a match
-			Exists:          true,
-			Required:        true,
-			FirstTimestamps: []int64{579, 420},
+			Exists:   true,
+			Required: true,
+			LeftEdge: []Event{RegistryEvent{TimeStamp: 579}, RegistryEvent{TimeStamp: 420}},
 		}
 		test.Components["c3"] = &ComponentResult{
 			Exists:   true,
 			Required: true,
 			// timestamps that align after c1
-			FirstTimestamps: []int64{420, 1892, 2890},
+			LeftEdge: []Event{FileEvent{TimeStamp: 420}, ApiEvent{TimeStamp: 1892}, RegistryEvent{TimeStamp: 2890}},
 		}
 		test.Components["c4"] = &ComponentResult{
 			Exists:   true,
 			Required: true,
 			// timestamps that align after c3
-			FirstTimestamps: []int64{500, 2000, 18900},
+			LeftEdge: []Event{RegistryEvent{TimeStamp: 500}, RegistryEvent{TimeStamp: 2000}, RegistryEvent{TimeStamp: 18900}},
 		}
 		test.Components["c5"] = &ComponentResult{
 			Exists:   true,
 			Required: true,
 			// timestamps that align after c4
-			FirstTimestamps: []int64{600, 4000},
+			LeftEdge: []Event{FileEvent{TimeStamp: 600}, FileEvent{TimeStamp: 4000}},
 		}
 		return test
 	case 3:
@@ -153,24 +153,24 @@ func CreateTestTimeline(option int) Test {
 			ExpectedMatch: false,
 		}
 		test.Components["c1"] = &ComponentResult{
-			Exists:          true,
-			Required:        true,
-			FirstTimestamps: []int64{420, 69, 5000},
+			Exists:   true,
+			Required: true,
+			LeftEdge: []Event{FileEvent{TimeStamp: 420}, FileEvent{TimeStamp: 69}, FileEvent{TimeStamp: 5000}},
 		}
 		test.Components["c2"] = &ComponentResult{
-			Exists:          true,
-			Required:        true,
-			FirstTimestamps: []int64{5200, 6800},
+			Exists:   true,
+			Required: true,
+			LeftEdge: []Event{RegistryEvent{TimeStamp: 5200}, RegistryEvent{TimeStamp: 6800}},
 		}
 		test.Components["c3"] = &ComponentResult{
-			Exists:          true,
-			Required:        true,
-			FirstTimestamps: []int64{420, 69, 5000},
+			Exists:   true,
+			Required: true,
+			LeftEdge: []Event{FileEvent{TimeStamp: 420}, FileEvent{TimeStamp: 69}, FileEvent{TimeStamp: 5000}},
 		}
 		test.Components["c4"] = &ComponentResult{
-			Exists:          true,
-			Required:        true,
-			FirstTimestamps: []int64{500, 7000},
+			Exists:   true,
+			Required: true,
+			LeftEdge: []Event{ApiEvent{TimeStamp: 500}, ApiEvent{TimeStamp: 7000}},
 		}
 		return test
 	case 4:
@@ -182,9 +182,9 @@ func CreateTestTimeline(option int) Test {
 		}
 
 		test.Components["c1"] = &ComponentResult{
-			Exists:          true,
-			Required:        true,
-			FirstTimestamps: []int64{420, 69, 5000},
+			Exists:   true,
+			Required: true,
+			LeftEdge: []Event{ApiEvent{TimeStamp: 420}, RegistryEvent{TimeStamp: 69}, RegistryEvent{TimeStamp: 5000}},
 		}
 
 		test.Components["c2"] = &ComponentResult{ // not a match
@@ -193,27 +193,27 @@ func CreateTestTimeline(option int) Test {
 		}
 
 		test.Components["c3"] = &ComponentResult{
-			Exists:          true,
-			Required:        true,
-			FirstTimestamps: []int64{5800},
+			Exists:   true,
+			Required: true,
+			LeftEdge: []Event{FileEvent{TimeStamp: 5800}},
 		}
 
 		test.Components["c4"] = &ComponentResult{ // not a match
-			Exists:          true,
-			Required:        true,
-			FirstTimestamps: []int64{2800, 499},
+			Exists:   true,
+			Required: true,
+			LeftEdge: []Event{FileEvent{TimeStamp: 2800}, FileEvent{TimeStamp: 499}},
 		}
 
 		test.Components["c5"] = &ComponentResult{
-			Exists:          true,
-			Required:        true,
-			FirstTimestamps: []int64{7000, 8000},
+			Exists:   true,
+			Required: true,
+			LeftEdge: []Event{FileEvent{TimeStamp: 7000}, FileEvent{TimeStamp: 8000}},
 		}
 
 		test.Components["c6"] = &ComponentResult{
-			Exists:          true,
-			Required:        true,
-			FirstTimestamps: []int64{9000, 90000},
+			Exists:   true,
+			Required: true,
+			LeftEdge: []Event{FileEvent{TimeStamp: 9000}, FileEvent{TimeStamp: 90000}},
 		}
 		return test
 	case 5:
@@ -231,25 +231,25 @@ func CreateTestTimeline(option int) Test {
 			Bonus:    30,
 		}
 		test.Components["c2"] = &ComponentResult{
-			Exists:          true,
-			Required:        true,
-			FirstTimestamps: []int64{200, 420, 3000},
+			Exists:   true,
+			Required: true,
+			LeftEdge: []Event{FileEvent{TimeStamp: 200}, FileEvent{TimeStamp: 420}, FileEvent{TimeStamp: 3000}},
 		}
 		test.Components["c3"] = &ComponentResult{
-			Exists:          true,
-			Required:        false,
-			FirstTimestamps: []int64{500, 2000},
-			Bonus:           20,
+			Exists:   true,
+			Required: false,
+			LeftEdge: []Event{RegistryEvent{TimeStamp: 500}, RegistryEvent{TimeStamp: 2000}},
+			Bonus:    20,
 		}
 		test.Components["c4"] = &ComponentResult{
-			Exists:          true,
-			Required:        true,
-			FirstTimestamps: []int64{69, 550, 3000},
+			Exists:   true,
+			Required: true,
+			LeftEdge: []Event{RegistryEvent{TimeStamp: 69}, RegistryEvent{TimeStamp: 550}, FileEvent{TimeStamp: 3000}},
 		}
 		test.Components["c5"] = &ComponentResult{
-			Exists:          true,
-			Required:        true,
-			FirstTimestamps: []int64{9000, 13},
+			Exists:   true,
+			Required: true,
+			LeftEdge: []Event{ApiEvent{TimeStamp: 9000}, ApiEvent{TimeStamp: 13}},
 		}
 		return test
 	case 6:
@@ -261,25 +261,25 @@ func CreateTestTimeline(option int) Test {
 			ExpectedBonus: 0,
 		}
 		test.Components["c1"] = &ComponentResult{
-			Exists:          true,
-			Required:        true,
-			FirstTimestamps: []int64{1275, 2590, 12842},
+			Exists:   true,
+			Required: true,
+			LeftEdge: []Event{FileEvent{TimeStamp: 1275}, FileEvent{TimeStamp: 2590}, FileEvent{TimeStamp: 12842}},
 		}
 		test.Components["c2"] = &ComponentResult{
-			Exists:          true,
-			Required:        false,
-			FirstTimestamps: []int64{123, 420},
-			Bonus:           20,
+			Exists:   true,
+			Required: false,
+			LeftEdge: []Event{ApiEvent{TimeStamp: 123}, ApiEvent{TimeStamp: 420}},
+			Bonus:    20,
 		}
 		test.Components["c3"] = &ComponentResult{
-			Exists:          true,
-			Required:        true,
-			FirstTimestamps: []int64{579, 11002, 4820, 2200},
+			Exists:   true,
+			Required: true,
+			LeftEdge: []Event{ApiEvent{TimeStamp: 579}, FileEvent{TimeStamp: 11002}, FileEvent{TimeStamp: 4820}, FileEvent{TimeStamp: 2200}},
 		}
 		test.Components["c4"] = &ComponentResult{
-			Exists:          true,
-			Required:        true,
-			FirstTimestamps: []int64{1870, 12800, 4000},
+			Exists:   true,
+			Required: true,
+			LeftEdge: []Event{FileEvent{TimeStamp: 1870}, RegistryEvent{TimeStamp: 12800}, FileEvent{TimeStamp: 4000}},
 		}
 		return test
 	case 7:
@@ -291,10 +291,10 @@ func CreateTestTimeline(option int) Test {
 			ExpectedBonus: 20,
 		}
 		test.Components["c0"] = &ComponentResult{
-			Exists:          true,
-			Required:        false,
-			Bonus:           20,
-			FirstTimestamps: []int64{1},
+			Exists:   true,
+			Required: false,
+			Bonus:    20,
+			LeftEdge: []Event{FileEvent{TimeStamp: 1}},
 		}
 		test.Components["c00"] = &ComponentResult{
 			Exists:   false,
@@ -302,42 +302,43 @@ func CreateTestTimeline(option int) Test {
 			Bonus:    10,
 		}
 		test.Components["c1"] = &ComponentResult{
-			Exists:          true,
-			Required:        true,
-			FirstTimestamps: []int64{1275, 2590, 12842},
+			Exists:   true,
+			Required: true,
+			LeftEdge: []Event{FileEvent{TimeStamp: 1275}, FileEvent{TimeStamp: 2590}, FileEvent{TimeStamp: 12842}},
 		}
 		test.Components["c2"] = &ComponentResult{ // not a match
-			Exists:          true,
-			Required:        true,
-			FirstTimestamps: []int64{579, 420},
+			Exists:   true,
+			Required: true,
+			LeftEdge: []Event{RegistryEvent{TimeStamp: 579}, RegistryEvent{TimeStamp: 420}},
 		}
 		test.Components["c3"] = &ComponentResult{
-			Exists:          true,
-			Required:        true,
-			FirstTimestamps: []int64{421, 1892, 2890},
+			Exists:   true,
+			Required: true,
+			LeftEdge: []Event{FileEvent{TimeStamp: 421}, FileEvent{TimeStamp: 1892}, FileEvent{TimeStamp: 2890}},
 		}
 		test.Components["c4"] = &ComponentResult{
-			Exists:          true,
-			Required:        true,
-			FirstTimestamps: []int64{500, 2000, 18900},
+			Exists:   true,
+			Required: true,
+			LeftEdge: []Event{FileEvent{TimeStamp: 500}, RegistryEvent{TimeStamp: 2000}, ApiEvent{TimeStamp: 18900}},
 		}
 		test.Components["c5"] = &ComponentResult{
-			Exists:          true,
-			Required:        true,
-			FirstTimestamps: []int64{600, 4000},
+			Exists:   true,
+			Required: true,
+			LeftEdge: []Event{FileEvent{TimeStamp: 600}, FileEvent{TimeStamp: 4000}},
 		}
 		test.Components["c6"] = &ComponentResult{
-			Exists:          true,
-			Required:        true,
-			FirstTimestamps: []int64{3000},
+			Exists:   true,
+			Required: true,
+			LeftEdge: []Event{FileEvent{TimeStamp: 3000}},
 		}
 		test.Components["c7"] = &ComponentResult{
-			Exists:          true,
-			Required:        false,
-			FirstTimestamps: []int64{1000}, // not a match
-			Bonus:           5,
+			Exists:   true,
+			Required: false,
+			LeftEdge: []Event{FileEvent{TimeStamp: 1000}}, // not a match
+			Bonus:    5,
 		}
 		return test
+		//TODO: test case including handle event in linear (timestamp 0)
 	}
 	return Test{}
 }
