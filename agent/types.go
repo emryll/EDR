@@ -55,7 +55,7 @@ type Score struct {
 // it will handle logging/printing and saving matches to Process structure.
 type Result struct {
 	TotalScore int
-	Results    []StdResult
+	Results    []*PatternMatch
 }
 
 // wrapper to allow for "timeline reconstruction". This is how matches should be stored

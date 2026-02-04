@@ -34,10 +34,10 @@ func (p *Process) CheckBehaviorPatterns() Result {
 		} else if len(pattern.Components) == 1 && !components[pattern.Components[0].GetName()].Exists {
 			continue // this will later be replaced by early exit in component checks
 		}
-		//TODO: add to process history
-		match := pattern.GetStdResult(bonus)
-		matches.TotalScore += match.Score
-		matches.Results = append(matches.Results, *match)
+		//* 4. Add match to process' history
+		match := p.AddToHistory(pattern.GetStdResult(bonus), components)
+		matches.TotalScore += match.Result.Score
+		matches.Results = append(matches.Results, match)
 	}
 	return matches
 }
@@ -64,7 +64,7 @@ Options:
 			}
 		}
 		//* 4. Collect timestamps of matches, prepare result
-		result.LeftEdge = append(result.LeftEdge, p.APICalls[fn])
+		result.LeftEdge = append(result.LeftEdge, api)
 		for _, a := range api.History {
 			result.LeftEdge = append(result.LeftEdge, a)
 		}
