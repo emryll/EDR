@@ -216,3 +216,36 @@ int ModuleMemoryScan(unsigned int pid, char* moduleName, YRX_SCANNER* scanner) {
     }
     free(sections);
 }
+
+MEMORY_REGION* FindUnbackedExecutablePages(HANDLE hProcess, size_t* count, size_t* totalSize) {
+    SYSTEM_INFO sysInfo;
+    MEMORY_BASIC_INFORMATION mbi;
+    LPVOID lpBaseAddress = NULL;
+    MEMORY_REGION* regions = NULL;
+    *totalSize = 0;
+    *count = 0;
+
+    GetSystemInfo(&sysInfo);
+    //* iterate every memory page of process
+    while (lpBaseAddress < sysInfo.lpMaximumApplicationAddress) {
+        if (VirtualQueryEx(hProcess, lpBaseAddress, &mbi, sizeof(mbi)) == 0) {
+            lpBaseAddress = (LPBYTE)lpBaseAddress + sysInfo.dwPageSize;
+            continue;
+        }
+        //* collect entry if the page is unbacked executable memory
+        if (mbi.State == MEM_COMMIT && (mbi.Protect&PAGE_EXECUTE) && mbi.Type != MEM_IMAGE) {
+            MEMORY_REGION* tmp = (MEMORY_REGION*)realloc(regions, ((*count) + 1) * sizeof(MEMORY_REGION));
+            if (tmp == NULL) {
+                printf("[ERROR] Failed to realloc MEMORY_REGION array (%dB)\n", ((*count)+1)*sizeof(MEMORY_REGION));
+                return regions;
+            }
+            regions = tmp;
+            regions[*count].address = mbi.BaseAddress;
+            regions[*count].size    = mbi.RegionSize;
+            (*totalSize) += mbi.RegionSize;
+            (*count)++;
+        }
+        lpBaseAddress = (LPBYTE)mbi.BaseAddress + mbi.RegionSize;
+    }
+    return regions;
+}
