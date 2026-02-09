@@ -119,7 +119,6 @@ func parsePattern(node *yaml.Node) (*BehaviorPattern, error) {
 		// No components field, that's ok
 		return pattern, nil
 	}
-
 	if componentsNode.Kind != yaml.SequenceNode {
 		return nil, fmt.Errorf("components must be a sequence")
 	}
@@ -131,62 +130,97 @@ func parsePattern(node *yaml.Node) (*BehaviorPattern, error) {
 		if err != nil {
 			return nil, fmt.Errorf("component %d: %w", i, err)
 		}
+		if len(componentsNode.Content) > 1 && comp.GetName() == "" {
+			return nil, fmt.Errorf("\"%s\": components must be named (line %d)", pattern.Name, compNode.Line)
+		}
 		pattern.Components = append(pattern.Components, comp)
 	}
 
+	if len(pattern.Components) > 1 {
+		if pattern.Timeline == "" {
+			return nil, fmt.Errorf("must define a timeline")
+		}
+		if err := pattern.ValidateTimeline(); err != nil {
+			return nil, fmt.Errorf("invalid timeline: %v", err)
+		}
+	}
 	return pattern, nil
 }
 
 func parseComponent(node *yaml.Node) (Component, error) {
 	// Node is a MappingNode representing one component
-
-	// Peek at type field
-	var peek struct {
-		Type string `yaml:"type"`
-	}
+	var (
+		group int
+		comp  Component
+		// Peek at type field
+		peek struct {
+			Type string `yaml:"type"`
+		}
+	)
 	node.Decode(&peek)
 
 	// Based on type, decode into right struct
 	switch peek.Type {
 	case "api":
-		var comp ApiComponent
-		//TODO: check which group, i.e. which conditions can be used
-		//TODO: iterate conditions; create function for it
-		conditionsNode := findNodeInMapping("conditions", node)
-		if conditionsNode != nil {
-			if conditionsNode.Kind == yaml.MappingNode {
-				fmt.Println("[debug] conditions is a mapping node")
-			}
-			if conditionsNode.Kind == yaml.SequenceNode {
-				fmt.Println("[debug] conditions is a sequence node")
-			}
-			if conditionsNode.Kind == yaml.ScalarNode {
-				fmt.Printf("[debug] conditions is a scalar node (%v)\n", conditionsNode.Value)
-			}
-			for i := 0; i < len(conditionsNode.Content); i += 2 {
-				keyNode := conditionsNode.Content[i]     // name of variable, scalar
-				valueNode := conditionsNode.Content[i+1] // value of variable, scalar
-				fmt.Printf("[debug] node %d of conditions: %v\n\tnode %d of conditions: %v\n", i, keyNode.Value, i+1, valueNode.Value)
-			}
-		}
-
-		//parseCondition(conditionNode, comp.GetConditionMask())
-		node.Decode(&comp) // Decodes all yaml-tagged fields
-		return &comp, nil
-
+		var apiComp ApiComponent
+		node.Decode(&apiComp) // Decodes all yaml-tagged fields
+		group = apiComp.GetGroup()
+		comp = &apiComp
 	case "file":
-		var comp FileComponent
-		node.Decode(&comp)
-		return &comp, nil
+		var fileComp FileComponent
+		node.Decode(&fileComp)
+		group = fileComp.GetGroup()
+		comp = &fileComp
+	case "registry":
+		var regComp RegComponent
+		node.Decode(&regComp)
+		group = regComp.GetGroup()
+		comp = &regComp
+	case "handle":
+		var handleComp HandleEntry
+		node.Decode(&handleComp)
+		group = handleComp.GetGroup()
+		comp = &handleComp
+	case "etw-ti", "etw":
+		var etwComp EtwComponent
+		node.Decode(&etwComp)
+		group = etwComp.GetGroup()
+		comp = &etwComp
+	default:
+		return nil, fmt.Errorf("invalid component type: \"%s\"", peek.Type)
 	}
-	return nil, nil
+
+	conditionsNode := findNodeInMapping("conditions", node)
+	conditions, err := parseConditions(conditionsNode, group)
+	if err != nil {
+		fmt.Printf("Failed to parse conditions: %v\n", err)
+	} else {
+		comp.SetConditions(conditions)
+	}
+	return comp, nil
+}
+
+// conditionMask is a bitmask telling which sets of conditions can be used.
+func parseConditions(node *yaml.Node, group int) ([]Condition, error) {
+	//? Conditions are mapping nodes containing mapping nodes and sequence nodes
+	if node == nil {
+		return nil, nil
+	}
+	var conditions []Condition
+	sets := GetConditionSets(group)
+	for _, set := range sets {
+		if err := node.Decode(set); err != nil {
+			return nil, err
+		}
+		conditions = append(conditions, set)
+	}
+	return conditions, nil
 }
 
 // Find a node of a specified key name, return that node.
 // Made only for MappingNodes. If node was not found, or not MappingNode return is nil
 func findNodeInMapping(key string, node *yaml.Node) *yaml.Node {
 	if node.Kind != yaml.MappingNode {
-		fmt.Println("[debug] Not a mapping node")
 		return nil
 	}
 	var newNode *yaml.Node
