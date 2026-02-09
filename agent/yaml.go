@@ -316,3 +316,41 @@ func GetKind(kind yaml.Kind) string {
 	}
 	return ""
 }
+
+func (p *BehaviorPattern) ValidateTimeline() error {
+	// convert components to map for quicker lookup
+	components := make(map[string]bool)
+	for _, comp := range p.Components {
+		components[comp.GetName()] = true
+	}
+
+	// it has already been checked that all components are named
+	var insideParentheses bool
+	tokens := strings.Fields(p.Timeline)
+	for i := 0; i < len(tokens); i += 2 {
+		//* make sure all used components are defined
+		if !components[tokens[i]] {
+			return fmt.Errorf("unknown component in timeline: \"%s\"", tokens[i])
+		}
+		//* make sure all parentheses are valid
+		if tokens[i][0] == '(' {
+			if insideParentheses {
+				return fmt.Errorf("nested parentheses are not allowed in timeline")
+			}
+			insideParentheses = true
+		}
+		if tokens[i][len(tokens[i])-1] == ')' {
+			if !insideParentheses {
+				return fmt.Errorf("unmatched closing parentheses without opening")
+			}
+			insideParentheses = false
+		}
+		//* make sure no conditionals inside parentheses
+		if insideParentheses {
+			if strings.EqualFold(tokens[i+1], "or") {
+				return fmt.Errorf("conditionals are not allowed inside parentheses")
+			}
+		}
+	}
+	return nil
+}
