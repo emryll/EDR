@@ -184,6 +184,7 @@ func parseComponent(node *yaml.Node) (Component, error) {
 	case "etw-ti", "etw":
 		var etwComp EtwComponent
 		node.Decode(&etwComp)
+		etwComp.Provider = "Microsoft-Windows-Threat-Intelligence"
 		group = etwComp.GetGroup()
 		comp = &etwComp
 	default:
@@ -193,10 +194,9 @@ func parseComponent(node *yaml.Node) (Component, error) {
 	conditionsNode := findNodeInMapping("conditions", node)
 	conditions, err := parseConditions(conditionsNode, group)
 	if err != nil {
-		fmt.Printf("Failed to parse conditions: %v\n", err)
-	} else {
-		comp.SetConditions(conditions)
+		return nil, fmt.Errorf("failed to parse conditions: %v\n", err)
 	}
+	comp.SetConditions(conditions)
 	return comp, nil
 }
 
