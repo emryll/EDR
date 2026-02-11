@@ -207,7 +207,12 @@ func parseComponent(node *yaml.Node) (Component, error) {
 		etwComp.Provider = "Microsoft-Windows-Threat-Intelligence"
 		group = etwComp.GetGroup()
 		comp = &etwComp
-
+	case "etw":
+		var etwComp EtwComponent
+		node.Decode(&etwComp)
+		if etwComp.Provider == "" {
+			return nil, fmt.Errorf("must declare provider in generic ETW component")
+		}
 	default:
 		return nil, fmt.Errorf("invalid component type: \"%s\"", peek.Type)
 	}
