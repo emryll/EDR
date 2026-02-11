@@ -160,33 +160,54 @@ func parseComponent(node *yaml.Node) (Component, error) {
 	node.Decode(&peek)
 
 	// Based on type, decode into right struct
-	switch peek.Type {
+	switch strings.ToLower(peek.Type) {
 	case "api":
 		var apiComp ApiComponent
 		node.Decode(&apiComp) // Decodes all yaml-tagged fields
 		group = apiComp.GetGroup()
 		comp = &apiComp
+		if len(apiComp.Options) == 0 {
+			return nil, fmt.Errorf("must declare API options in API component")
+		}
 	case "file":
 		var fileComp FileComponent
 		node.Decode(&fileComp)
 		group = fileComp.GetGroup()
 		comp = &fileComp
+		if fileComp.Action == "" {
+			return nil, fmt.Errorf("must declare action in file component")
+		}
+		validOptions := map[string]bool{"write": true, "read": true, "create": true, "delete": true, "rename": true}
+		if !validOptions[fileComp.Action] {
+			return nil, fmt.Errorf("unknown file action: \"%s\"", fileComp.Action)
+		}
 	case "registry":
 		var regComp RegComponent
 		node.Decode(&regComp)
 		group = regComp.GetGroup()
 		comp = &regComp
+		if regComp.Action == "" {
+			return nil, fmt.Errorf("must declare action in registry component")
+		}
+		validOptions := map[string]bool{"create_key": true, "delete_key": true, "set_value": true, "delete_value": true, "set_info": true, "set_security": true}
+		if !validOptions[regComp.Action] {
+			return nil, fmt.Errorf("unknown registry action: \"%s\"", regComp.Action)
+		}
 	case "handle":
 		var handleComp HandleEntry
 		node.Decode(&handleComp)
 		group = handleComp.GetGroup()
 		comp = &handleComp
-	case "etw-ti", "etw":
+		if handleComp.Type == "" {
+			return nil, fmt.Errorf("must declare object type in handle component")
+		}
+	case "etw-ti", "ti":
 		var etwComp EtwComponent
 		node.Decode(&etwComp)
 		etwComp.Provider = "Microsoft-Windows-Threat-Intelligence"
 		group = etwComp.GetGroup()
 		comp = &etwComp
+
 	default:
 		return nil, fmt.Errorf("invalid component type: \"%s\"", peek.Type)
 	}
