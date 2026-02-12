@@ -100,7 +100,7 @@ func GetApiGroup(options []string) int {
 			groups[GROUP_QUEUE_APC] = true
 		case "AdjustTokenPrivileges":
 			groups[GROUP_TOKEN_PRIVILEGES] = true
-		case "WaitForSingleObject", "WaitForSingleObjectEx", "WaitForMultipleObjects", "WaitForMultipleObjectsEx", "MsgWaitForMultipleObjectsEx", "SignalObjectAndWait", "SleepEx":
+		case "WaitForSingleObject", "WaitForSingleObjectEx", "WaitForMultipleObjects", "WaitForMultipleObjectsEx", "MsgWaitForMultipleObjects", "MsgWaitForMultipleObjectsEx", "SignalObjectAndWait", "SleepEx", "WaitOnAddress":
 			groups[GROUP_OBJECT_WAIT] = true
 		case "SetWindowsHookExA", "SetWindowsHookExW", "SetWinEventHook":
 			groups[GROUP_SET_WIN_HOOK] = true
@@ -233,8 +233,8 @@ func GetEtwGroup(provider string, eventId Bitmask) int {
 			return GROUP_SET_THREAD_CONTEXT
 		case ETW_TI_SUSPEND_RESUME_THREAD, ETW_TI_SUSPEND_RESUME_THREAD2:
 			return GROUP_GENERIC_THREAD
-		case ETW_TI_SUSPEND_RESUME_PROCESS:
-			//TODO
+		case ETW_TI_SUSPEND_RESUME_PROCESS, ETW_TI_SUSPEND_RESUME_PROCESS2, ETW_TI_SUSPEND_RESUME_PROCESS3, ETW_TI_SUSPEND_RESUME_PROCESS4:
+			return GROUP_GENERIC_PROCESS
 		//TODO: mem alloc/protect/write/read ?
 		default:
 			return GROUP_UNKNOWN
