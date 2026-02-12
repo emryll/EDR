@@ -345,17 +345,25 @@ func GetKind(kind yaml.Kind) string {
 
 func (p *BehaviorPattern) ValidateTimeline() error {
 	// convert components to map for quicker lookup
-	components := make(map[string]bool)
+	components := make(map[string]Component)
 	for _, comp := range p.Components {
-		components[comp.GetName()] = true
+		components[comp.GetName()] = comp
 	}
 
 	// it has already been checked that all components are named
 	var insideParentheses bool
+	var insideConditional bool
 	tokens := strings.Fields(p.Timeline)
 	for i := 0; i < len(tokens); i += 2 {
+		//* check for illegal symbol usage
+		if tokens[i] == "->" || strings.EqualFold(tokens[i], "or") {
+			return fmt.Errorf("illegal usage of symbol \"%s\", expected component", tokens[i])
+		}
+		if tokens[i] == "(" || tokens[i] == ")" {
+			return fmt.Errorf("invalid usage of parentheses; they must not be space-separated")
+		}
 		//* make sure all used components are defined
-		if !components[tokens[i]] {
+		if components[tokens[i]] == nil {
 			return fmt.Errorf("unknown component in timeline: \"%s\"", tokens[i])
 		}
 		//* make sure all parentheses are valid
@@ -376,6 +384,15 @@ func (p *BehaviorPattern) ValidateTimeline() error {
 			if strings.EqualFold(tokens[i+1], "or") {
 				return fmt.Errorf("conditionals are not allowed inside parentheses")
 			}
+		}
+		//* make sure there are no optional components in conditionals
+		if strings.EqualFold(tokens[i+1], "or") {
+			insideConditional = true
+			if components[tokens[i]].GetBonus() != 0 {
+				return fmt.Errorf("bonus not allowed inside conditional")
+			}
+		} else if !insideParentheses && insideConditional {
+			insideConditional = false
 		}
 	}
 	return nil
