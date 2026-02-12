@@ -43,6 +43,34 @@ const (
 	SCAN_THREADSCAN      = 0x10
 	SCAN_HANDLESCAN      = 0xff
 
+	// Microsoft-Windows-Kernel-File
+    EVENT_FILE_CREATE = 12 // create/open
+    EVENT_FILE_DELETE = 26
+    EVENT_FILE_READ = 15
+    EVENT_FILE_WRITE = 16
+    EVENT_FILE_RENAME = 27 // "RenamePath", rename happened
+
+	// Microsoft-Windows-Kernel-Registry
+	EVENT_REG_CREATE_KEY = 1
+    EVENT_REG_OPEN_KEY = 2 // not used
+    EVENT_REG_DELETE_KEY = 3
+    EVENT_REG_QUERY_KEY = 4 // not used
+    EVENT_REG_SET_KEY_VALUE = 5
+    EVENT_REG_DELETE_KEY_VALUE = 6
+    EVENT_REG_SET_INFO_KEY = 11 // change key metadata (permissions, for example)
+    EVENT_REG_CLOSE_KEY = 13 // not used
+    EVENT_REG_SET_SECURITY_KEY = 15
+
+	// Microsoft-Windows-Threat-Intelligence
+	ETW_TI_QUEUE_APC = 4 // there is also 24, i think its for kernel APC
+	ETW_TI_SET_THREAD_CONTEXT = 5 // same thing here as above
+	ETW_TI_SUSPEND_RESUME_THREAD = 15
+	ETW_TI_SUSPEND_RESUME_THREAD2 = 16 // not sure why there is 2 
+	ETW_TI_SUSPEND_RESUME_PROCESS = 17 // no clue why there are 4 of these...
+	ETW_TI_SUSPEND_RESUME_PROCESS2 = 18
+	ETW_TI_SUSPEND_RESUME_PROCESS3 = 19
+	ETW_TI_SUSPEND_RESUME_PROCESS4 = 20
+
 	TM_TYPE_EMPTY_VALUE    = 0
 	TM_TYPE_API_CALL       = 1
 	TM_TYPE_FILE_EVENT     = 2
@@ -76,18 +104,9 @@ const (
 	HAS_SIGNATURE = 1
 	HASH_MISMATCH = 2
 
-	FILE_ACTION_DELETE = 0
-	FILE_ACTION_MODIFY = 1 << 0
-	FILE_ACTION_CREATE = 1 << 1
-
-	GROUP_LOCAL_MEM_ALLOC     = "mem_alloc"
-	GROUP_REMOTE_MEM_ALLOC    = "remote_mem_alloc"
-	GROUP_LOCAL_MEM_PROTECT   = "mem_protect"
-	GROUP_REMOTE_MEM_PROTECT  = "remote_mem_protect"
-	GROUP_FILE_EVENT          = "file_event"
-	GROUP_REG_EVENT           = "reg_event"
-	GROUP_INVALID_API_OPTIONS = "invalid_api" // two or more apis of different groups
-	GROUP_UNKNOWN_API         = "unknown_api"
+//	FILE_ACTION_DELETE = 0
+//	FILE_ACTION_MODIFY = 1 << 0
+//	FILE_ACTION_CREATE = 1 << 1
 
 	OBJECT_TYPE_UNKNOWN        = 0
 	OBJECT_TYPE_PROCESS        = 1
@@ -223,8 +242,6 @@ var enums = map[string]Bitmask{
 	"INHERIT_PARENT_AFFINITY": windows.INHERIT_PARENT_AFFINITY,
 }
 
-
-
 var magicToType = []Magic{
 	{[]byte{0x4D, 0x5A}, "DOS MZ / PE File (.exe, .dll, ++)", []string{".exe, .dll, .sys, .ocx, .drv"}},
 	{[]byte{0x5A, 0x4D}, "DOS ZM legacy executable (.exe)", []string{".exe"}},
@@ -279,3 +296,4 @@ var magicToType = []Magic{
 	//TODO: lnk and other common malicious initial vector file types
 }
 
+var stars = "************************************************************************************"
