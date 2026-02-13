@@ -189,14 +189,18 @@ type ShellExecuteFilter struct {
 	FileDirNot    []string `yaml:"file_dir_not"`
 	Parameters    []string `yaml:"parameters"`
 	ParametersNot []string `yaml:"parameters_not"`
+	WorkingDir    []string `yaml:"working_dir"`
+	WorkingDirNot []string `yaml:"working_dir_not"`
 }
 
 // Condition set for tokens (which rights are enabled/disabled)
 type TokenFilter struct {
+	Present     []string `yaml:"present"`
+	PresentNot  []string `yaml:"not_present"`
 	Enabled     []string `yaml:"enabled"`
-	EnabledNot  []string `yaml:"enabled_not"`
+	EnabledNot  []string `yaml:"not_enabled"`
 	Disabled    []string `yaml:"disabled"`
-	DisabledNot []string `yaml:"disabled_not"`
+	DisabledNot []string `yaml:"not_disabled"`
 }
 
 // Condition set specifically for GetProcAddress
