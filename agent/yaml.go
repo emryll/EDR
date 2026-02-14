@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -169,6 +170,12 @@ func parseComponent(node *yaml.Node) (Component, error) {
 		if len(apiComp.Options) == 0 {
 			return nil, fmt.Errorf("must declare API options in API component")
 		}
+		if group == GROUP_UNKNOWN_API {
+			return nil, fmt.Errorf("unknown API %v", apiComp.Options)
+		}
+		if group == GROUP_INVALID_API_OPTIONS {
+			return nil, fmt.Errorf("illegal API options %v: must not use APIs of different groups in single component", apiComp.Options)
+		}
 	case "file":
 		var fileComp FileComponent
 		node.Decode(&fileComp)
@@ -207,6 +214,9 @@ func parseComponent(node *yaml.Node) (Component, error) {
 		etwComp.Provider = "Microsoft-Windows-Threat-Intelligence"
 		group = etwComp.GetGroup()
 		comp = &etwComp
+		if group == GROUP_UNKNOWN {
+			return nil, fmt.Errorf("unknown ETW-TI event")
+		}
 	case "etw":
 		var etwComp EtwComponent
 		node.Decode(&etwComp)
@@ -396,4 +406,49 @@ func (p *BehaviorPattern) ValidateTimeline() error {
 		}
 	}
 	return nil
+}
+
+func GetConditionFields(sets []Condition) (map[string]bool, error) {
+	allowed := make(map[string]bool)
+	for _, set := range sets {
+		t := reflect.TypeOf(set)
+		// get value if its a pointer
+		if t.Kind() == reflect.Ptr {
+			t = t.Elem()
+		}
+		if t.Kind() != reflect.Struct {
+			return nil, fmt.Errorf("expected Condition, but got something not a struct")
+		}
+
+		// Add each conditions yaml name into map
+		for i := 0; i < t.NumField(); i++ {
+			allowed[t.Field(i).Tag.Get("yaml")] = true
+		}
+	}
+	return allowed, nil
+}
+
+// This function gets all allowed conditions per group. It is used for
+// validating condition usage in behavioral patterns at load-time.
+// Group indexes should be in sequence with no more than a 4 number gap,
+// or else this function will not get the groups after the >=5 number gap.
+func GetGroupConditionCatalog() (map[int]map[string]bool, error) {
+	catalog := make(map[int]map[string]bool)
+	emptySequence := 0
+	for i := 0; ; i++ {
+		sets := GetConditionSets(i)
+		if len(sets) == 0 {
+			emptySequence++
+		} else {
+			fields, err := GetConditionFields(sets)
+			if err != nil {
+				return nil, err
+			}
+			catalog[i] = fields
+		}
+		if emptySequence >= 5 {
+			break
+		}
+	}
+	return catalog, nil
 }
