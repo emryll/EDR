@@ -12,8 +12,8 @@
 //?  need to comment out the enum in HOOK_INDEX, or it will mess up every hook after
 HookEntry HookList[] = {
     { "MessageBoxA", "user32.dll", NULL, NULL,              (FARPROC)MessageBoxA_Handler, {0} },
-    { "VirtualProtect", "kernelbase.dll", NULL, NULL,       (FARPROC)VirtualProtect_Handler, {0} },
-    { "VirtualProtectEx", "kernelbase.dll", NULL, NULL,     (FARPROC)VirtualProtectEx_Handler, {0} },
+    { "VirtualProtect", "kernel32.dll", NULL, NULL,         (FARPROC)VirtualProtect_Handler, {0} },
+    { "VirtualProtectEx", "kernel32.dll", NULL, NULL,       (FARPROC)VirtualProtectEx_Handler, {0} },
     { "NtProtectVirtualMemory", "ntdll.dll", NULL, NULL,    (FARPROC)NtProtectVM_Handler, {0} },
     { "VirtualAlloc", "kernel32.dll", NULL, NULL,           (FARPROC)VirtualAlloc_Handler, {0} },
     { "VirtualAlloc2", "kernelbase.dll", NULL, NULL,        (FARPROC)VirtualAlloc2_Handler, {0} },
@@ -74,7 +74,6 @@ HookEntry HookList[] = {
     { "WaitForMultipleObjectsEx", "kernel32.dll", NULL, NULL,          (FARPROC)WaitForMultipleObjectsEx_Handler, {0} },
     { "MsgWaitForMultipleObjects", "user32.dll", NULL, NULL,           (FARPROC)MsgWaitForMultipleObjects_Handler, {0} },
     { "MsgWaitForMultipleObjectsEx", "user32.dll", NULL, NULL,         (FARPROC)MsgWaitForMultipleObjectsEx_Handler, {0} },
-    { "MsgWaitForMultipleObjectsEx", "user32.dll", NULL, NULL,         (FARPROC)MsgWaitForMultipleObjectsEx_Handler, {0} },
     { "SignalObjectAndWait", "kernel32.dll", NULL, NULL,               (FARPROC)SignalObjectAndWait_Handler, {0} },
     { "SleepEx", "kernel32.dll", NULL, NULL,                           (FARPROC)SleepEx_Handler, {0} },
     { "WaitOnAddress", "api-ms-win-core-synch-l1-2-0.dll", NULL, NULL, (FARPROC)WaitOnAddress_Handler, {0} },
@@ -83,8 +82,8 @@ HookEntry HookList[] = {
     { "SetWinEventHook", "user32.dll", NULL, NULL,                     (FARPROC)SetWinEventHook_Handler, {0} },
     { "ShellExecuteA", "shell32.dll", NULL, NULL,                      (FARPROC)ShellExecuteA_Handler, {0} },
     { "ShellExecuteW", "shell32.dll", NULL, NULL,                      (FARPROC)ShellExecuteW_Handler, {0} },
-    { "ShellExecuteExW", "shell32.dll", NULL, NULL,                    (FARPROC)ShellExecuteExW_Handler, {0} },
     { "ShellExecuteExA", "shell32.dll", NULL, NULL,                    (FARPROC)ShellExecuteExA_Handler, {0} },
+    { "ShellExecuteExW", "shell32.dll", NULL, NULL,                    (FARPROC)ShellExecuteExW_Handler, {0} },
     { "OpenThreadToken", "advapi32.dll", NULL, NULL,                   (FARPROC)OpenThreadToken_Handler, {0} },
     { "NtOpenThreadToken", "ntdll.dll", NULL, NULL,                    (FARPROC)NtOpenThreadToken_Handler, {0} },
     { "NtOpenThreadTokenEx", "ntdll.dll", NULL, NULL,                  (FARPROC)NtOpenThreadTokenEx_Handler, {0} },
@@ -102,8 +101,8 @@ HookEntry HookList[] = {
     { "FindWindowExA", "user32.dll", NULL, NULL,                       (FARPROC)FindWindowExA_Handler, {0} },
     { "FindWindowExW", "user32.dll", NULL, NULL,                       (FARPROC)FindWindowExW_Handler, {0} },
     { "NtUserFindWindowEx", "ntdll.dll", NULL, NULL,                   (FARPROC)NtUserFindWindowEx_Handler, {0} },
-    { "AddVectoredExceptionHandler", "kernel32.dll", NULL, NULL,       (FARPROC)AddVEH_Handler, {0} },
-    { "RtlAddVectoredExceptionHandler", "ntdll.dll", NULL, NULL,       (FARPROC)RtlAddVEH_Handler, {0} },
+    { "AddVectoredExceptionHandler", "kernel32.dll", NULL, NULL,       (FARPROC)AddVeh_Handler, {0} },
+    { "RtlAddVectoredExceptionHandler", "ntdll.dll", NULL, NULL,       (FARPROC)RtlAddVeh_Handler, {0} },
     { "NtQuerySystemInformation", "ntdll.dll", NULL, NULL,             (FARPROC)NtQuerySystemInformation_Handler, {0} },
     { "NtQuerySystemInformationEx", "ntdll.dll", NULL, NULL,           (FARPROC)NtQuerySystemInformationEx_Handler, {0} },
     { "NtQueryInformationThread", "ntdll.dll", NULL, NULL,             (FARPROC)NtQueryInformationThread_Handler, {0} },
@@ -135,6 +134,7 @@ HookEntry HookList[] = {
     { "Module32FirstW", "kernel32.dll", NULL, NULL,                    (FARPROC)Module32FirstW_Handler, {0} },
     { "Module32NextW", "kernel32.dll", NULL, NULL,                     (FARPROC)Module32NextW_Handler, {0} },
     { "IsDebuggerPresent", "kernel32.dll", NULL, NULL,                 (FARPROC)IsDebuggerPresent_Handler, {0} },
+    { "WinExec", "kernel32.dll", NULL, NULL,                           (FARPROC)WinExec_Handler, {0} },
 };
 
 Module TrackedModules[] = {
