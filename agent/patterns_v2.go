@@ -44,7 +44,7 @@ func (p *Process) CheckBehaviorPatterns() Result {
 
 // Method to implement Component interface.
 // This tells if the component matched, and returns the timestamp options.
-func (c ApiComponent) GetResult(p *Process) *ComponentResult {
+func (c ApiComponent) GetResult(p *Process, captures map[string][]string) *ComponentResult {
 	var result ComponentResult
 	//* 1. Check potential universal condition override
 	if c.UniversalOverride != nil && !c.UniversalOverride.Check(p) {
@@ -63,11 +63,15 @@ Options:
 				continue Options
 			}
 		}
-		//* 4. Collect timestamps of matches, prepare result
+		//* 4. Collect matched events, prepare result
+		if len(c.Captures) > 0 {
+			c.SaveCaptures(api, captures)
+		}
 		result.LeftEdge = append(result.LeftEdge, api)
 		for _, a := range api.History {
 			result.LeftEdge = append(result.LeftEdge, a)
 		}
+
 		result.Exists = true
 		result.Bonus = c.Bonus
 	}
@@ -190,6 +194,15 @@ func (p Parameter) GetValue() any {
 	case PARAMETER_BOOLEAN:
 		return binary.LittleEndian.Uint32(p.Buffer) == 1
 	case PARAMETER_UINT32:
+		if p.Domain != 0 {
+			// lookup corresponding enum name
+			for enum, entry := range enums {
+				if (entry.Domain == p.Domain || entry.Domain == DOMAIN_GENERIC_ANY) &&
+					uint32(entry.Value) == binary.LittleEndian.Uint32(p.Buffer) {
+					return enum
+				}
+			}
+		}
 		return binary.LittleEndian.Uint32(p.Buffer)
 	case PARAMETER_UINT64:
 		return binary.LittleEndian.Uint64(p.Buffer)
@@ -203,7 +216,7 @@ func (p Parameter) GetValue() any {
 
 // setting verbose as true displays corresponding timeline of events
 func (p PatternMatch) Print(verbose ...bool) {
-	fmt.Printf("\n%s\n\n[*] Process %d: %s\n\tCategory: %v\n\t? %s\n\n%s\n", stars, p.Pid, p.Result.Name, p.Result.Category[:], p.Result.Description, stars)
+	fmt.Printf("\n%s\n\n[*] Process %d: %s\n\tCategory: %v\n\tScore: %d\n\t? %s\n\n%s\n", stars, p.Pid, p.Result.Name, p.Result.Category[:], p.Result.Score, p.Result.Description, stars)
 	if len(verbose) > 0 && verbose[0] {
 		for i, event := range p.Events {
 			event.Print(p.Pid)

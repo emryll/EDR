@@ -18,6 +18,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode"
 	"unicode/utf16"
 	"unsafe"
 
@@ -758,4 +759,152 @@ func IsUserWriteable(path string) bool {
 		}
 	}
 	return true
+}
+
+func (event ApiEvent) Print(pid uint32) {
+	stamp := time.Unix(event.TimeStamp, 0)
+	fmt.Printf("\n%s\n", stars)
+	fmt.Printf("\n[%s] Process %d API call:\n\t%s!%s", pid, stamp.Format("02-01-06 15:04:05"), event.DllName, event.FuncName)
+	if len(event.History) > 0 {
+		fmt.Printf(" (%d occurrences in history buffer)", len(event.History))
+	}
+	fmt.Printf("\n")
+	for name, param := range event.Parameters {
+		fmt.Printf("*\t%s: %v\n", name, param.GetValue())
+	}
+	fmt.Printf("\n%s\n", stars)
+}
+
+func (event FileEvent) Print(pid uint32) {
+	stamp := time.Unix(event.TimeStamp, 0)
+	fmt.Printf("\n%s\n", stars)
+	fmt.Printf("\n[%s] Process %d file system event:\n\t%s event on %s", pid, stamp.Format("02-01-06 15:04:05"), ActionAsString(event.Action), event.Path)
+	if len(event.History) > 0 {
+		fmt.Printf(" (%d occurrences in history buffer)", len(event.History))
+	}
+	fmt.Printf("\n")
+	for name, param := range event.Parameters {
+		fmt.Printf("*\t%s: %v\n", name, param.GetValue())
+	}
+	fmt.Printf("\n%s\n", stars)
+}
+
+func (event RegistryEvent) Print(pid uint32) {
+	stamp := time.Unix(event.TimeStamp, 0)
+	fmt.Printf("\n%s\n", stars)
+	fmt.Printf("\n[%s] Process %d registry event\n\t%s event on %s", pid, stamp.Format("02-01-06 15:04:05"), ActionAsString(event.Action), event.Path)
+	if len(event.History) > 0 {
+		fmt.Printf(" (%d occurrences in history buffer)", len(event.History))
+	}
+	fmt.Printf("\n")
+	for name, param := range event.Parameters {
+		fmt.Printf("*\t%s: %v\n", name, param.GetValue())
+	}
+	fmt.Printf("\n%s\n", stars)
+}
+
+func (event HandleEntry) Print(pid uint32) {
+	fmt.Printf("\n%s\n", stars)
+	fmt.Printf("\n[%s] Process %d holds handle:\n*\tType: %s\n*\tAccess: %s\n", event.Pid, event.Type, event.PrintAccess())
+	fmt.Printf("\n%s\n", stars)
+}
+
+func (event FileEvent) ActionAsString() string {
+	switch event.Action {
+	case EVENT_FILE_CREATE:
+		return "CREATE"
+	case EVENT_FILE_DELETE:
+		return "DELETE"
+	case EVENT_FILE_READ:
+		return "READ"
+	case EVENT_FILE_WRITE:
+		return "WRITE"
+	case EVENT_FILE_RENAME:
+		return "RENAME"
+
+	}
+	return "(unknown action)"
+}
+
+func (event RegistryEvent) ActionAsString() string {
+	switch event.Action {
+	case EVENT_REG_CREATE_KEY:
+		return "CREATE KEY"
+	case EVENT_REG_OPEN_KEY:
+		return "OPEN KEY"
+	case EVENT_REG_DELETE_KEY:
+		return "DELETE KEY"
+	case EVENT_REG_QUERY_KEY:
+		return "QUERY KEY"
+	case EVENT_REG_SET_KEY_VALUE:
+		return "SET KEY VALUE"
+	case EVENT_REG_DELETE_KEY_VALUE:
+		return "DELETE KEY VALUE"
+	case EVENT_REG_SET_INFO_KEY:
+		return "SET INFO KEY"
+	case EVENT_REG_CLOSE_KEY:
+		return "CLOSE KEY"
+	case EVENT_REG_SET_SECURITY_KEY:
+		return "SET SECURITY KEY"
+	}
+	return "(unknown action)"
+}
+
+// TODO: update to use new Enum as string
+func (handle HandleEntry) PrintAccess() string {
+	//TODO: get correct domain
+	var domain uint8
+	switch handle.Type {
+	case OBJECT_TYPE_PROCESS:
+		domain = DOMAIN_PROCESS_ACCESS
+	case OBJECT_TYPE_THREAD:
+		domain = DOMAIN_THREAD_ACCESS
+	case OBJECT_TYPE_FILE:
+		domain = DOMAIN_FILE_ACCESS
+	default:
+		domain = DOMAIN_HANDLE_ACCESS
+	}
+
+	access := InterpretBitmaskValue((Bitmask)(handle.Access), domain)
+
+	if _, ok := access.(uint32); ok {
+		return fmt.Sprintf("0x%X (unknown flags)", handle.Access)
+	}
+	return fmt.Sprintf("%v", access)
+}
+
+func SnakeCaseToPascalCase(str string) string {
+	parts := strings.Split(str, "_")
+	for i, part := range parts {
+		if part == "" {
+			continue
+		}
+		runes := []rune(part)
+		runes[0] = unicode.ToUpper(runes[0])
+		parts[i] = string(runes)
+	}
+	return strings.Join(parts, "")
+}
+
+// Returns string interpretation of all contained flags,
+// or if it couldn't find corresponding enums, it returns raw value
+func InterpretBitmaskValue(mask Bitmask, domain uint8) any {
+	var flags []string
+	for enum, entry := range enums {
+		if (entry.Domain == DOMAIN_GENERIC_ANY || entry.Domain == domain) && mask&entry.Value != 0 {
+			flags = append(flags, enum)
+		}
+	}
+	if len(flags) == 0 {
+		return mask
+	}
+
+	var result string
+	for i := 0; i < len(flags); i++ {
+		result += flags[i]
+		if i+1 < len(flags) {
+			result += " | "
+		}
+	}
+	return result
 }
