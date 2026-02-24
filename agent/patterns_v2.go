@@ -194,16 +194,11 @@ func (p Parameter) GetValue() any {
 	case PARAMETER_BOOLEAN:
 		return binary.LittleEndian.Uint32(p.Buffer) == 1
 	case PARAMETER_UINT32:
-		if p.Domain != 0 {
-			// lookup corresponding enum name
-			for enum, entry := range enums {
-				if (entry.Domain == p.Domain || entry.Domain == DOMAIN_GENERIC_ANY) &&
-					uint32(entry.Value) == binary.LittleEndian.Uint32(p.Buffer) {
-					return enum
-				}
-			}
+		val := binary.LittleEndian.Uint32(p.Buffer)
+		if p.Domain == 0 {
+			return val
 		}
-		return binary.LittleEndian.Uint32(p.Buffer)
+		return InterpretBitmaskValue((Bitmask)(val), p.Domain)
 	case PARAMETER_UINT64:
 		return binary.LittleEndian.Uint64(p.Buffer)
 	case PARAMETER_POINTER:
@@ -211,7 +206,7 @@ func (p Parameter) GetValue() any {
 	case PARAMETER_BYTES:
 		return p.Buffer
 	}
-	return "(empty GetValue)"
+	return "(invalid parameter)"
 }
 
 // setting verbose as true displays corresponding timeline of events

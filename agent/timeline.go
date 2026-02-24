@@ -30,9 +30,12 @@ func EvaluateTimeline(timeline string, components map[string]*ComponentResult) (
 		return components[tokens[0]].Exists, components[tokens[0]].Bonus
 	}
 
-	tokens, firstBonus := EvaluateTimelessComponents(tokens, components)
+	tokens, firstBonus, exit := EvaluateTimelessComponents(tokens, components)
+	if exit {
+		return false, 0
+	}
 	tokens = EvaluateParantheses(tokens, components)
-	tokens, exit := EvaluateConditionalBranches(tokens, components)
+	tokens, exit = EvaluateConditionalBranches(tokens, components)
 	//? this early exit implementation is kinda ugly... any way to make it cleaner?
 	if exit { // conditional didnt match, early exit
 		return false, 0
@@ -43,12 +46,14 @@ func EvaluateTimeline(timeline string, components map[string]*ComponentResult) (
 
 // This function is responsible for checking/solving the time-insensitive components (+).
 // It is assumed that the timeline has already been validated, and there will be no out-of-bounds error.
-func EvaluateTimelessComponents(logic []string, components map[string]*ComponentResult) ([]string, int) {
+func EvaluateTimelessComponents(logic []string, components map[string]*ComponentResult) ([]string, int, bool) {
 	// find and remove them from the start of timeline. Accumulate bonus if any
 	var bonus int
 	for logic[1] == "+" {
 		if components[logic[0]].Exists {
 			bonus += components[logic[0]].Bonus
+		} else if components[logic[0]].Required {
+			return logic, bonus, true
 		}
 		logic = logic[2:]
 	}
@@ -56,10 +61,12 @@ func EvaluateTimelessComponents(logic []string, components map[string]*Component
 	for logic[len(logic)-2] == "+" {
 		if components[logic[0]].Exists {
 			bonus += components[logic[len(logic)-1]].Bonus
+		} else if components[logic[0]].Required {
+			return logic, bonus, true
 		}
 		logic = logic[:len(logic)-2]
 	}
-	return logic, bonus
+	return logic, bonus, false
 }
 
 // no nested parantheses allowed in this version.
