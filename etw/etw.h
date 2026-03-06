@@ -42,6 +42,31 @@ typedef enum {
     EVENT_REG_SET_SECURITY_KEY = 15,
 } ETW_EVENT_ID;
 
+typedef enum {
+    // Microsoft-Windows-Kernel-File
+    KERNEL_FILE_KEYWORD_FILENAME = 0x10,
+    KERNEL_FILE_KEYWORD_FILEIO = 0x20,
+    KERNEL_FILE_KEYWORD_OP_END = 0x40,
+    KERNEL_FILE_KEYWORD_CREATE = 0x80,
+    KERNEL_FILE_KEYWORD_READ = 0x100,
+    KERNEL_FILE_KEYWORD_WRITE = 0x200,
+    KERNEL_FILE_KEYWORD_DELETE_PATH = 0x400,
+    KERNEL_FILE_KEYWORD_RENAME_SETLINK_PATH = 0x800,
+    KERNEL_FILE_KEYWORD_CREATE_NEW_FILE = 0x1000,
+    // Microsoft-Windows-Kernel-Registry
+    KERNEL_REGISTRY_KEYWORD_CREATE_KEY = 0x1000,
+    KERNEL_REGISTRY_KEYWORD_DELETE_KEY = 0x4000,
+    KERNEL_REGISTRY_KEYWORD_SET_VALUE = 0x100,
+    KERNEL_REGISTRY_KEYWORD_DELETE_VALUE = 0x200,
+    KERNEL_REGISTRY_KEYWORD_SET_INFORMATION = 0x40,
+    KERNEL_REGISTRY_KEYWORD_SET_SECURITY = 0x4,
+    // Microsoft-Windows-Kernel-Registry
+    WINEVENT_KEYWORD_PROCESS = 0x10,
+    WINEVENT_KEYWORD_THREAD = 0x20,
+    WINEVENT_KEYWORD_IMAGE = 0x40,
+
+} ETW_KEYWORD;
+
 // this type describes packets received by this component from agent
 typedef struct {
     DWORD type; // 0: empty, 1: shutdown, 2: ping
@@ -58,12 +83,21 @@ typedef enum {
     ETW_CMD_PLIST_REMOVE,
     ETW_CMD_PING, // not implemented (not in alpha)
 } ETW_CMD_TYPE;
-
+/*
 // Standard telemetry header for sending data to agent. First part of packet.
 typedef struct {
     DWORD pid;
     DWORD type;
     size_t dataSize;
+    time_t timeStamp;
+} TELEMETRY_HEADER;
+*/
+typedef struct {
+    DWORD pid; // which process did it
+    DWORD tid; // which thread did it
+    DWORD type; // source; api call, file event, etc.
+    DWORD eventId; // enum indicating which event it is (for example file create or OpenProcess)
+    size_t dataSize; // total size of parameters, which come after header
     time_t timeStamp;
 } TELEMETRY_HEADER;
 
@@ -156,7 +190,7 @@ BYTE* CreateRegistryEventPacket(PEVENT_RECORD, size_t*);
 BOOL ParseFileEventParameter(PEVENT_RECORD, ULONG, PTRACE_EVENT_INFO, BYTE**, size_t*, FILE_EVENT*);
 BOOL ParseRegEventParameter(PEVENT_RECORD, ULONG, PTRACE_EVENT_INFO, BYTE**, size_t*, REG_EVENT*);
 int SendEtwTelemetryPacket(PEVENT_RECORD, BYTE*, size_t, DWORD);
-TELEMETRY_HEADER GetTelemetryHeader(DWORD, DWORD, size_t, size_t);
+TELEMETRY_HEADER GetTelemetryHeader(DWORD, DWORD, size_t, time_t);
 
 #ifdef __cplusplus
 extern "C" {
