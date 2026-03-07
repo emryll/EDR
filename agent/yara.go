@@ -359,3 +359,42 @@ func FullMemoryScan(pid uint32) (Result, error) {
 	}
 	return results, nil
 }
+
+// finds unbacked memory pages, creating alerts from them. If unbacked memory pages
+// are found over a total size threshold, memory scans are run on said pages.
+func ScanUnbackedMemory(pid uint32) (Result, error) {
+	hProcess, err := windows.OpenProcess(windows.PROCESS_QUERY_INFORMATION|windows.PROCESS_VM_READ, false, pid)
+	if err != nil {
+		return Result{}, fmt.Errorf("Failed to open process: %v", err)
+	}
+	defer windows.CloseHandle(hProcess)
+
+	var (
+		numRegions C.size_t
+		totalSize  C.size_t
+	)
+	cRegions := C.FindUnbackedExecutablePages(C.HANDLE(hProcess), &numRegions, &totalSize)
+	if cRegions == nil || numRegions == 0 || totalSize == 0 {
+		return Result{}, nil
+	}
+	//* create alert based on size thresholds
+	var score int
+	if int(totalSize) < UNBACKED_CODE_SIZE_THRESHOLD_0 {
+		score = 0
+	} else if int(totalSize) < UNBACKED_CODE_SIZE_THRESHOLD_1 {
+		score = BASE_SCORE_UNBACKED_CODE * 0.4
+	} else {
+		score = BASE_SCORE_UNBACKED_CODE
+	}
+	if score > 0 {
+		msg := fmt.Sprintf("Found %d unbacked executable memory regions in process %d\n", numRegions, pid)
+		alert := CreateAlert(ALERT_UNBACKED_CODE, msg, pid, score)
+		alert.PushAlert()
+	}
+
+	results, err := ScanMemoryRegions(hProcess, int(pid), cRegions, numRegions)
+	if err != nil {
+		return Result{}, fmt.Errorf("Failed to scan memory regions: %v", err)
+	}
+	return results, nil
+}

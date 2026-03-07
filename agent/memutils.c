@@ -193,7 +193,35 @@ MEMORY_REGION* GetExecutableMemory(HANDLE hProcess, size_t* numRegions) {
             continue;
         }
 
-        if (mbi.State == MEM_COMMIT && mbi.Protect & PAGE_EXECUTE) {
+        if (mbi.State == MEM_COMMIT && mbi.Protect & EXECUTE_ANY) {
+            regions = (MEMORY_REGION*)realloc(regions, ((*numRegions) + 1) * sizeof(MEMORY_REGION));
+
+            regions[*numRegions].address = mbi.BaseAddress;
+            regions[*numRegions].size    = mbi.RegionSize;
+            (*numRegions)++;
+        }
+        lpBaseAddress = (LPBYTE)mbi.BaseAddress + mbi.RegionSize;
+    }
+    return regions;
+}
+
+// returns all unbacked executable memory regions inside a process.
+// Caller is responsible for freeing returned array
+MEMORY_REGION* GetUnbackedMemory(HANDLE hProcess, size_t* numRegions) {
+    SYSTEM_INFO sysInfo;
+    MEMORY_BASIC_INFORMATION mbi;
+    LPVOID lpBaseAddress = NULL;
+    MEMORY_REGION* regions = NULL;
+    *numRegions = 0;
+
+    GetSystemInfo(&sysInfo);
+    while (lpBaseAddress < sysInfo.lpMaximumApplicationAddress) {
+        if (VirtualQueryEx(hProcess, lpBaseAddress, &mbi, sizeof(mbi)) == 0) {
+            lpBaseAddress = (LPBYTE)lpBaseAddress + sysInfo.dwPageSize;
+            continue;
+        }
+
+        if (mbi.State == MEM_COMMIT && mbi.Type != MEM_IMAGE && mbi.Protect & EXECUTE_ANY) {
             regions = (MEMORY_REGION*)realloc(regions, ((*numRegions) + 1) * sizeof(MEMORY_REGION));
 
             regions[*numRegions].address = mbi.BaseAddress;
@@ -584,4 +612,37 @@ BOOL DoesAddressPointToModule(LPVOID address, DWORD pid) {
     }
     free(moduleTexts);
     return FALSE;
+}
+
+MEMORY_REGION* FindUnbackedExecutablePages(HANDLE hProcess, size_t* count, size_t* totalSize) {
+    SYSTEM_INFO sysInfo;
+    MEMORY_BASIC_INFORMATION mbi;
+    LPVOID lpBaseAddress = NULL;
+    MEMORY_REGION* regions = NULL;
+    *totalSize = 0;
+    *count = 0;
+
+    GetSystemInfo(&sysInfo);
+    //* iterate every memory page of process
+    while (lpBaseAddress < sysInfo.lpMaximumApplicationAddress) {
+        if (VirtualQueryEx(hProcess, lpBaseAddress, &mbi, sizeof(mbi)) == 0) {
+            lpBaseAddress = (LPBYTE)lpBaseAddress + sysInfo.dwPageSize;
+            continue;
+        }
+        //* collect entry if the page is unbacked executable memory
+        if (mbi.State == MEM_COMMIT && (mbi.Protect&EXECUTE_ANY) && mbi.Type != MEM_IMAGE) {
+            MEMORY_REGION* tmp = (MEMORY_REGION*)realloc(regions, ((*count) + 1) * sizeof(MEMORY_REGION));
+            if (tmp == NULL) {
+                printf("[ERROR] Failed to realloc MEMORY_REGION array (%dB)\n", ((*count)+1)*sizeof(MEMORY_REGION));
+                return regions;
+            }
+            regions = tmp;
+            regions[*count].address = mbi.BaseAddress;
+            regions[*count].size    = mbi.RegionSize;
+            (*totalSize) += mbi.RegionSize;
+            (*count)++;
+        }
+        lpBaseAddress = (LPBYTE)mbi.BaseAddress + mbi.RegionSize;
+    }
+    return regions;
 }
