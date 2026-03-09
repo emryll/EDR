@@ -1,6 +1,11 @@
 package main
 
-import "encoding/binary"
+import (
+	"encoding/binary"
+	"fmt"
+	"sort"
+	"strings"
+)
 
 //? This file contains the declarations and methods of Event interface.
 //? Events describe telemetry data. Actual actions which have happened in a process.
@@ -10,6 +15,7 @@ type Event interface {
 	GetTimestamp() int64
 	GetParameter(name string) Parameter
 	GetParameterWithOptions(options ...string) Parameter
+	GetUniqueIdentifier() string // the purpose of this is to spot duplicates
 	Print(pid uint32)
 }
 
@@ -23,9 +29,8 @@ type ApiEvent struct {
 	ThreadId   uint32
 	DllName    string
 	FuncName   string
-	TimeStamp  int64
+	TimeStamps int64
 	Parameters map[string]Parameter
-	History    []*ApiEvent // previous occurrences sorted by timestamp
 }
 
 type FileEvent struct {
@@ -171,14 +176,63 @@ func (handle HandleEntry) GetParameterWithOptions(options ...string) Parameter {
 	return Parameter{}
 }
 
-func (a ApiEvent) HistoryPtr() *[]*ApiEvent {
-	return &a.History
+// Derive a string encoded key for the specific event.
+// Events with the same identifier are considered duplicates.
+func (a ApiEvent) GetUniqueIdentifier() string {
+	// parameters need to be iterated in alphabetical order
+	keys := make([]string, 0, len(a.Parameters))
+	for k := range a.Parameters {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	// the identifier is in the following format:
+	// tid + param_1 + value_1 + ... + param_n + value_n
+	var b strings.Builder
+	fmt.Fprintf(&b, "%d", a.ThreadId)
+	for _, k := range keys {
+		b.WriteString(k)
+		fmt.Fprintf(&b, "%v", a.Parameters[k].GetValue())
+	}
+	return b.String()
 }
 
-func (f FileEvent) HistoryPtr() *[]*FileEvent {
-	return &f.History
+// Derive a string encoded key for the specific event.
+// Events with the same identifier are considered duplicates.
+func (f FileEvent) GetUniqueIdentifier() string {
+	// parameters need to be iterated in alphabetical order
+	keys := make([]string, 0, len(f.Parameters))
+	for k := range f.Parameters {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	// the identifier is in the following format:
+	// filepath + param_1 + value_1 + ... + param_n + value_n
+	var b strings.Builder
+	b.WriteString(f.Path)
+	for _, k := range keys {
+		b.WriteString(k)
+		fmt.Fprintf(&b, "%v", f.Parameters[k].GetValue())
+	}
+	return b.String()
 }
 
-func (r RegistryEvent) HistoryPtr() *[]*RegistryEvent {
-	return &r.History
+func (r RegistryEvent) GetUniqueIdentifier() string {
+	// parameters need to be iterated in alphabetical order
+	keys := make([]string, 0, len(r.Parameters))
+	for k := range r.Parameters {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	// the identifier is in the following format:
+	// filepath + param_1 + value_1 + ... + param_n + value_n
+	var b strings.Builder
+	b.WriteString(r.Path)
+	for _, k := range keys {
+		b.WriteString(k)
+		fmt.Fprintf(&b, "%v", r.Parameters[k].GetValue())
+	}
+	return b.String()
 }
