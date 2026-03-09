@@ -21,26 +21,45 @@ type Process struct {
 	Integrity      uint32
 	StaticScanDone bool // represents the first static scan to avoid unnecessary extra scans. might also want a file scan history
 	Score          Score
-	ApiMu          sync.Mutex
 	// this is collected telemetry data history
-	APICalls map[string]*ApiEvent // key: api call name
+	ApiEvents ApiTelemetryIndex
 	// to make behavioral patterns more flexible, file events are organized into directories,
 	// so this will point to a directory map, which has all the files. key is the filename
-	FileEvents FileTelemetryCatalog
-	RegEvents  RegTelemetryCatalog
+	FileEvents FileTelemetryIndex
+	RegEvents  RegTelemetryIndex
 	// these are the matched patterns that make up the total score
 	PatternMatches map[string]*PatternMatch // key: name of pattern
 	LastHeartbeat  int64                    // telemetry dll heartbeat
 }
 
+type ApiTelemetryIndex struct {
+	mu     sync.RWMutex
+	Events map[string]map[string]*ApiEvent // api -> id
+}
+
+/*
 type RegTelemetryCatalog struct {
 	RegPathTree   map[string][]*RegistryEvent // path
 	RegActionTree map[int][]*RegistryEvent    // action
+}*/
+
+type RegTelemetryIndex struct {
+	mu            sync.RWMutex
+	RegPathTree   map[string]map[string]*RegistryEvent // path -> id
+	RegActionTree map[string]map[string]*RegistryEvent // action -> id
 }
 
-type FileTelemetryCatalog struct {
-	FilePathTree   map[string]map[string]map[int]*FileEvent // map[dir]map[filename]map[action]
-	FileActionTree map[int][]*FileEvent                     // search by action
+/*
+	type FileTelemetryCatalog struct {
+		FilePathTree   map[string]map[string]map[int]*FileEvent // map[dir]map[filename]map[action]
+		FileActionTree map[int][]*FileEvent                     // search by action
+	}
+*/
+type FileTelemetryIndex struct {
+	mu sync.RWMutex
+	// dir -> filename -> action -> string encoded "unique" key
+	FilePathTree   map[string]map[string]map[string]map[string]*FileEvent
+	FileActionTree map[string]map[string]*FileEvent // action -> key
 }
 
 type Score struct {
@@ -65,7 +84,7 @@ type PatternMatch struct {
 	Pid    uint32
 }
 
-// universal type for portraying results. Portrays a matched pattern: YARA, static, behavioral
+// universal type for portraying simple results. Portrays a matched pattern: YARA, static, behavioral
 type StdResult struct {
 	Name        string   // short name of pattern
 	Description string   // what the pattern match means
@@ -124,6 +143,18 @@ type HashLookup struct {
 	} `json:"data"`
 }
 
+// Go version of C struct used for representing token privileges
+type PrivilegeInfo struct {
+	Name    [64]byte // C ansi string
+	Enabled uint32   // C boolean
+}
+
+// Go version of C struct used for representing token privileges
+type TokenInfo struct {
+	Count      uint64
+	Privileges [32]PrivilegeInfo
+}
+
 //*======================[TELEMETRY]==============================
 
 type Heartbeat struct {
@@ -148,7 +179,8 @@ type TelemetryHeader struct {
 
 type Parameter struct {
 	Name   string
-	Type   uint32
+	Type   uint8
+	Domain uint8 // enum, only used on bitmask values
 	Buffer []byte
 }
 
