@@ -200,7 +200,7 @@ func (a ApiEvent) GetUniqueIdentifier() string {
 	return b.String()
 }
 
-// Derive a string encoded key for the specific event.
+// Derive a string encoded "unique" identifier.
 // Events with the same identifier are considered duplicates.
 func (f FileEvent) GetUniqueIdentifier() string {
 	// parameters need to be iterated in alphabetical order
@@ -221,6 +221,8 @@ func (f FileEvent) GetUniqueIdentifier() string {
 	return b.String()
 }
 
+// Derive a string encoded key for the specific event.
+// Two events with the same identifier are consided duplicates.
 func (r RegistryEvent) GetUniqueIdentifier() string {
 	// parameters need to be iterated in alphabetical order
 	keys := make([]string, 0, len(r.Parameters))
@@ -306,6 +308,8 @@ func (f *FileEvent) AddToHistory(pid int) error {
 	return nil
 }
 
+// Add an event to the corresponding process' telemetry history.
+// This method should be called when event is first received and constructed.
 func (r *RegistryEvent) AddToHistory(pid int) error {
 	if _, exists := processes[pid]; !exists {
 		return fmt.Errorf("process %d is not tracked", pid)
@@ -335,6 +339,7 @@ func (r *RegistryEvent) AddToHistory(pid int) error {
 	return nil
 }
 
+// Remove this api event entry from the specified process' telemetry storage.
 func (a *ApiEvent) RemoveFromHistory(pid int) {
 	processes[pid].ApiEvents.mu.Lock()
 	defer processes[pid].ApiEvents.mu.Unlock()
@@ -346,6 +351,7 @@ func (a *ApiEvent) RemoveFromHistory(pid int) {
 	delete(processes[pid].ApiEvents.Events[a.FuncName], a.GetUniqueIdentifier())
 }
 
+// Remove this file event entry from the specified process' telemetry storage.
 func (f *FileEvent) RemoveFromHistory(pid int) {
 	processes[pid].FileEvents.mu.Lock()
 	defer processes[pid].FileEvents.mu.Unlock()
@@ -368,6 +374,7 @@ func (f *FileEvent) RemoveFromHistory(pid int) {
 	// Remove event entries and cleanup maps
 	delete(processes[pid].FileEvents.FileActionTree[f.Action], id)
 	delete(processes[pid].FileEvents.FilePathTree[dir][base][f.Action], id)
+
 	if len(processes[pid].FileEvents.FilePathTree[dir][base][f.Action]) == 0 {
 		delete(processes[pid].FileEvents.FilePathTree[dir][base], f.Action)
 	}
@@ -379,6 +386,7 @@ func (f *FileEvent) RemoveFromHistory(pid int) {
 	}
 }
 
+// Remove this registry entry from the specified process' telemetry storage.
 func (r *RegistryEvent) RemoveFromHistory(pid int) {
 	processes[pid].RegEvents.mu.Lock()
 	defer processes[pid].RegEvents.mu.Unlock()
@@ -395,4 +403,119 @@ func (r *RegistryEvent) RemoveFromHistory(pid int) {
 	if len(processes[pid].RegEvents.RegPathTree[r.Path]) == 0 {
 		delete(processes[pid].RegEvents.RegPathTree, r.Path)
 	}
+}
+
+// Get all events of a certain API call (e.g. WriteProcessMemory)
+// Optionally you can define a whitelist/filter of unique identifiers
+func (a *ApiTelemetryIndex) GetEvents(api string, id ...string) []*ApiEvent {
+	a.mu.RLock()
+	if _, exists := a.Events[api]; !exists {
+		return nil
+	}
+	var (
+		events = make([]*ApiEvent, 0, len(a.Events[api]))
+		ids    = make(map[string]bool, len(id))
+	)
+	for _, v := range id {
+		ids[v] = true
+	}
+
+	for key, event := range a.Events[api] {
+		if len(ids) == 0 || ids[key] {
+			events = append(events, event)
+		}
+	}
+	a.mu.RUnlock()
+	return events
+}
+
+// Get all registry events under a given registry path.
+// Note that it is not recursive (i.e. subdirs not included).
+// Optionally you can specify a specific action the event should be.
+func (r *RegTelemetryIndex) GetEventsByPath(path string, action string) []*RegistryEvent {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.RegPathTree[path] == nil {
+		return nil
+	}
+
+	var events []*RegistryEvent
+	for _, event := range r.RegPathTree[path] {
+		if action == "" || event.Action == action {
+			events = append(events, event)
+		}
+	}
+	return events
+}
+
+// Get all registry events of a specified action (e.g. create_key)
+func (r *RegTelemetryIndex) GetEventsByAction(action string) []*RegistryEvent {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.RegActionTree[action] == nil {
+		return nil
+	}
+
+	var events []*RegistryEvent
+	for _, event := range r.RegActionTree[action] {
+		events = append(events, event)
+	}
+	return events
+}
+
+// Get all file system events of a specified action (e.g. write)
+func (f *FileTelemetryIndex) GetEventsByAction(action string) []*FileEvent {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
+	if f.FileActionTree[action] == nil {
+		return nil
+	}
+
+	var events []*FileEvent
+	for _, event := range f.FileActionTree[action] {
+		events = append(events, event)
+	}
+	return events
+}
+
+// Get all file system events described by dir, path and action.
+// dir is required and declares the directory that the events must be under.
+// Note that the directory structure is not recursive (i.e. subdirs dont count)
+// Optionally you can define a filename and/or action further filtering events.
+func (f *FileTelemetryIndex) GetEventsByPath(dir string, base *string, action *string) []*FileEvent {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
+	if dir == "" || f.FilePathTree[dir] == nil || len(f.FilePathTree[dir]) == 0 {
+		return nil
+	}
+	if base != nil {
+		if f.FilePathTree[dir][*base] == nil || len(f.FilePathTree[dir][*base]) == 0 {
+			return nil
+		}
+		return getEventsOfAction(f.FilePathTree[dir][*base], action)
+	}
+
+	var events []*FileEvent
+	for _, file := range f.FilePathTree[dir] {
+		events = append(events, getEventsOfAction(file, action)...)
+	}
+	return events
+}
+
+// Internal helper for finding file system events in PathTree.
+func getEventsOfAction(actionMap map[string]map[string]*FileEvent, action *string) []*FileEvent {
+	var events []*FileEvent
+	for a, idMap := range actionMap {
+		if action != nil && a != *action {
+			continue
+		}
+		for _, event := range idMap {
+			events = append(events, event)
+		}
+	}
+	return events
 }
