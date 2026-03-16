@@ -35,6 +35,7 @@ func ParseParameters(data []byte) []Parameter {
 	return params
 }
 
+// takes in the current parameters header, and the entire buffer after it
 func ParseParameterString(header string, data []byte) (Parameter, error) {
 	var (
 		param   Parameter
@@ -42,45 +43,35 @@ func ParseParameterString(header string, data []byte) (Parameter, error) {
 	)
 
 	// skip empty reads. minimum possible size of header is 3 (a:b)
-	if header == "" || len(header) < 3 {
+	if header == "" || len(header) < 2 {
 		return Parameter{}, nil
 	}
-
-	parts := strings.Split(header, ":")
-	if len(parts) < 2 {
-		return Parameter{}, fmt.Errorf("packet string does not contain \":\" (%s)", header)
-	}
-
-	head := strings.Split(parts[0], "/")
-	param.Name = head[0]
-
-	if len(head) > 1 {
-		fmt.Printf("%s\n", head[1])
+	ptype := header[:1]
+	parts := strings.Split(header[1:], "/")
+	// non-array types should have only one string in head (no "/")
+	if len(parts) > 1 {
+		if len(parts[1]) == 0 {
+			return Parameter{}, fmt.Errorf("invalid header: size (%s)", header)
+		}
+		param.Name = parts[0]
+		size, err := strconv.Atoi(parts[1])
+		if err != nil {
+			return Parameter{}, fmt.Errorf("failed to read size into integer: %v (%s)", err, header)
+		}
+		// add array defined bytes into the parameter buffer
+		param.Buffer = append([]byte(nil), data[:size]...)
+		isArray = true
 	} else {
-		fmt.Println("nil")
+		param.Name = header[1:]
 	}
+
+	param.Type = uint8(GetParameterType(ptype, isArray))
 
 	// remove possible null-terminator from first byte
 	if len(data) > 0 && data[0] == '\000' {
 		data = data[1:]
 	}
-
-	// non-array types should have only one string in head (no "/")
-	if len(head) > 1 {
-		if len(head[1]) == 0 {
-			return Parameter{}, fmt.Errorf("invalid header: size (%s)", header)
-		}
-		size, err := strconv.Atoi(head[1])
-		if err != nil {
-			return Parameter{}, fmt.Errorf("failed to read size into integer: %v (%s)", err, header)
-		}
-		param.Buffer = append([]byte(nil), data[:size]...)
-		isArray = true
-	}
-
-	param.Type = GetParameterType(parts[1], isArray)
-
-	if !isArray {
+	if !isArray { // now get data buffer if it wasnt array
 		switch int(param.Type) {
 		case PARAMETER_ANSISTRING:
 			str := ReadAnsiString(data)
@@ -146,51 +137,4 @@ func PrintParameters(params map[string]Parameter) {
 		//fmt.Println("[debug] parameter buffer dump:")
 		//DumpPacket(param.Buffer)
 	}
-}
-
-func (event ApiEvent) GetParameterWithOptions(options []string) Parameter {
-	for _, name := range options {
-		if param, exists := event.Parameters[name]; exists {
-			return param
-		}
-	}
-	return Parameter{}
-}
-
-func (event FileEvent) GetParameterWithOptions(options []string) Parameter {
-	for _, name := range options {
-		if param, exists := event.Parameters[name]; exists {
-			return param
-		}
-	}
-	return Parameter{}
-}
-
-func (event RegistryEvent) GetParameterWithOptions(options []string) Parameter {
-	for _, name := range options {
-		if param, exists := event.Parameters[name]; exists {
-			return param
-		}
-	}
-	return Parameter{}
-}
-
-func (handle HandleEntry) GetParameterWithOptions(options []string) Parameter {
-	for _, name := range options {
-		switch name {
-		case "Access", "DesiredAccess":
-			param := Parameter{Name: name, Type: PARAMETER_UINT32}
-			param.Buffer = binary.LittleEndian.AppendUint32(param.Buffer, handle.Access)
-			return param
-		case "Type", "ObjectType", "HandleType":
-			param := Parameter{Name: name, Type: PARAMETER_UINT32}
-			param.Buffer = binary.LittleEndian.AppendUint32(param.Buffer, handle.Type)
-			return param
-		case "Pid", "CallingPid", "Owner", "OwningPid":
-			param := Parameter{Name: name, Type: PARAMETER_UINT32}
-			param.Buffer = binary.LittleEndian.AppendUint32(param.Buffer, handle.Pid)
-			return param
-		}
-	}
-	return Parameter{}
 }
