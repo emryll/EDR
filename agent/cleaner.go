@@ -45,6 +45,7 @@ func Sir_HumphreyDaundelyon_ChiefJanitor_MasterOfMops(wg *sync.WaitGroup, ctx co
 					tasks <- CleanupMission{Type: TM_TYPE_API_CALL, Pid: pid}
 					tasks <- CleanupMission{Type: TM_TYPE_FILE_EVENT, Pid: pid}
 					tasks <- CleanupMission{Type: TM_TYPE_REG_EVENT, Pid: pid}
+					tasks <- CleanupMission{Type: TM_TYPE_HANDLE, Pid: pid}
 				}
 			}()
 		}
@@ -69,6 +70,8 @@ func Humble_AdamFollywolle_III_NoviceSweeper(wg *sync.WaitGroup, tasks chan Clea
 				processes[mission.Pid].FileEvents.Cleanup()
 			case TM_TYPE_REG_EVENT:
 				processes[mission.Pid].RegEvents.Cleanup()
+			case TM_TYPE_HANDLE:
+				HandleTable.Cleanup() // implemented in handles.go
 			}
 		}
 	}

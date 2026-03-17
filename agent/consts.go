@@ -34,7 +34,10 @@ const (
 	HEARTBEAT_INTERVAL          = 30  //sec
 	NETWORKSCAN_INTERVAL        = 180 //sec, 3min
 	MAX_HEARTBEAT_DELAY         = HEARTBEAT_INTERVAL * 2
-	TM_HISTORY_CLEANUP_INTERVAL = 30 //sec
+	TM_CLEANUP_INTERVAL         = 30 //sec
+	TM_CLEANUP_INTERVAL_HARD    = 30 //sec
+	NUM_ENSLAVED_JANITORS 		= 50 // telemetry cleanup workers
+	HANDLE_CACHE_EXPIRATION     = 3 // sec
 
 	SCAN_MEMORYSCAN      = 0 // scan RWX mem and .text of main module
 	SCAN_MEMORYSCAN_EX   = 1 // scan all sections of all modules
@@ -78,7 +81,7 @@ const (
 	TM_TYPE_TEXT_INTEGRITY = 4
 	TM_TYPE_IAT_INTEGRITY  = 5
 	TM_TYPE_GENERIC_ALERT  = 6
-	EVENT_TYPE_HANDLE      = -1
+	TM_TYPE_HANDLE      = 7
 
 	API_ARG_TYPE_EMPTY   = 0
 	API_ARG_TYPE_DWORD   = 1
@@ -139,7 +142,7 @@ const (
 	PARAMETER_BYTES       = 7
 
 	//* bitmask enum domains
-	DOMAIN_GENERIC_ANY = 1 // this is used only in enum list, never in parameter
+	DOMAIN_GENERIC_ANY 		 = 1 
 	DOMAIN_PROCESS_ACCESS 	 = 2
 	DOMAIN_THREAD_ACCESS 	 = 3
 	DOMAIN_FILE_ACCESS 		 = 4
@@ -155,14 +158,54 @@ const (
 	DEFAULT_BANNER = TOTORO_BANNER1
 )
 
+var ( // Handle Cache Cleanup modifiers
+	HCC_MULTIPLIER_CONST = 1
+	HCC_OBJECT_MULTIPLIER = 2
+	HCC_TIME_MULTIPLIER = 2
+	HCC_TIME_POWER = 1.5
+
+	HCC_DEFAULT_QUOTA = 50
+	HCC_TOP_PRIORITY_BONUS = 5
+	HCC_OBJECT_TIER_1_SCORE = 2
+	HCC_OBJECT_TIER_2_SCORE = 15
+	HCC_OBJECT_TIER_3_SCORE = 40
+	HCC_OBJECT_TIER_4_SCORE = 60
+	HCC_OBJECT_UNKNOWN_SCORE = 70
+)
+
+// lower score indicates its more important
+var ObjectTypeTier = map[uint32]int {
+	OBJECT_TYPE_PROCESS: 1,
+	OBJECT_TYPE_THREAD: 1,
+	OBJECT_TYPE_WORKER_FACTORY: 1,
+	OBJECT_TYPE_TOKEN: 1,
+	OBJECT_TYPE_SECTION: 1,
+	OBJECT_TYPE_ALPC_PORT: 1,
+	OBJECT_TYPE_DRIVER: 1,
+	OBJECT_TYPE_DESKTOP: 2,
+	OBJECT_TYPE_DBGOBJECT: 2,
+	OBJECT_TYPE_SESSION: 2,
+	OBJECT_TYPE_JOB: 3,
+	OBJECT_TYPE_ETW_REGISTRATION: 3,
+	OBJECT_TYPE_ETW_CONSUMER: 3,
+	OBJECT_TYPE_ETW_SDE: 3,
+	OBJECT_TYPE_DIRECTORY: 3,
+	OBJECT_TYPE_FILE: 3,
+	OBJECT_TYPE_EVENT: 3,
+	OBJECT_TYPE_SEMAPHORE: 3,
+	OBJECT_TYPE_CALLBACK: 3,
+	OBJECT_TYPE_WMIGUID: 3,
+	OBJECT_TYPE_TIMER: 4,
+	OBJECT_TYPE_IRTIMER: 4,
+	OBJECT_TYPE_SYMLINK: 4,
+}
+
 type Enum struct {
 	Value Bitmask
 	// A domain is added for the purpose of timeline reconstruction.
 	// This enables raw bitmask values to be translated into corresponding string enums.
 	Domain uint8
 }
-
-
 
 // "dictionary" to allow for using string enums for bitmasks
 var enums = map[string]Enum{
