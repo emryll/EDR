@@ -19,12 +19,6 @@ HANDLE CreateRemoteThread_Handler(
     LPVOID                 lpParameter,
     DWORD                  dwCreationFlags,
     LPDWORD                lpThreadId) {
-    size_t packetSize = GetTelemetryPacketSize(TM_TYPE_API_CALL, 7);
-    // raw buffer for dynamically sized packets
-    BYTE* packet = (BYTE*)malloc(packetSize);
-    TELEMETRY_HEADER header = GetTelemetryHeader(TM_TYPE_API_CALL, packetSize - sizeof(TELEMETRY_HEADER));
-    API_CALL_HEADER apiHeader = GetApiCallHeader("kernel32.dll", "CreateRemoteThread", 7);
-
   size_t param1Size;
   BYTE* param1 = BuildParameter(&param1Size, PARAMETER_UINT32, "Flags", dwCreationFlags);
   size_t param2Size;
@@ -32,8 +26,12 @@ HANDLE CreateRemoteThread_Handler(
   DWORD pid = GetProcessId(hProcess);
   size_t param3Size;
   BYTE* param3 = BuildParameter(&param3Size, PARAMETER_UINT32, "TargetPid", pid);
+  size_t fnParamSize;
+  BYTE* fnParam = BuildParameter(fnParamSize, PARAMETER_ANSISTRING, "Func", "CreateRemoteThread");
+  size_t dllParamSize;
+  BYTE* dllParam = BuildParameter(dllParamSize, PARAMETER_ANSISTRING, "DllName", "kernel32.dll");
 
-  size_t totalParamsSize = param1Size + param2Size + param3Size;
+  size_t totalParamsSize = param1Size + param2Size + param3Size + fnParamSize + dllParamSize;
   TELEMETRY_HEADER header = GetTelemetryHeader(TM_TYPE_API_CALL, totalParamsSize);
 
   size_t packetSize = totalParamsSize + sizeof(header);
@@ -44,10 +42,14 @@ HANDLE CreateRemoteThread_Handler(
   memcpy(packet + sizeof(header), param1, param1Size);
   memcpy(packet + sizeof(header) + param1Size, param2, param2Size);
   memcpy(packet + sizeof(header) + param1Size + param2Size, param3, param3Size);
+  memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size, fnParam, fnParamSize);
+  memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size + fnParamSize, dllParam, dllParamSize);
 
   free(param1);
   free(param2);
   free(param3);
+  free(fnParam);
+  free(dllParam);
 
   EnqueuePacket(g_CriticalQueue, packet, packetSize);
     return ((CREATEREMOTETHREAD)HookList[HOOK_CREATE_REMOTE_THREAD].originalFunc)(hProcess, lpThreadAttributes, dwStackSize, lpStartAddress, lpParameter, dwCreationFlags, lpThreadId);
@@ -70,8 +72,12 @@ HANDLE CreateRemoteThreadEx_Handler(
   DWORD pid = GetProcessId(hProcess);
   size_t param3Size;
   BYTE* param3 = BuildParameter(&param3Size, PARAMETER_UINT32, "TargetPid", pid);
+  size_t fnParamSize;
+  BYTE* fnParam = BuildParameter(fnParamSize, PARAMETER_ANSISTRING, "Func", "CreateRemoteThreadEx");
+  size_t dllParamSize;
+  BYTE* dllParam = BuildParameter(dllParamSize, PARAMETER_ANSISTRING, "DllName", "kernel32.dll");
 
-  size_t totalParamsSize = param1Size + param2Size + param3Size;
+  size_t totalParamsSize = param1Size + param2Size + param3Size + fnParamSize + dllParamSize;
   TELEMETRY_HEADER header = GetTelemetryHeader(TM_TYPE_API_CALL, totalParamsSize);
 
   size_t packetSize = totalParamsSize + sizeof(header); 
@@ -82,13 +88,17 @@ HANDLE CreateRemoteThreadEx_Handler(
   memcpy(packet + sizeof(header), param1, param1Size);
   memcpy(packet + sizeof(header) + param1Size, param2, param2Size);
   memcpy(packet + sizeof(header) + param1Size + param2Size, param3, param3Size);
+  memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size, fnParam, fnParamSize);
+  memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size + fnParamSize, dllParam, dllParamSize);
 
   free(param1);
   free(param2);
   free(param3);
+  free(fnParam);
+  free(dllParam);
 
-    EnqueuePacket(g_CriticalQueue, packet, packetSize);
-    return ((CREATEREMOTETHREADEX)HookList[HOOK_CREATE_REMOTE_THREAD_EX].originalFunc)(hProcess, lpThreadAttributes, dwStackSize, lpStartAddress, lpParameter, dwCreationFlags, lpAttributeList, lpThreadId);
+  EnqueuePacket(g_CriticalQueue, packet, packetSize);
+  return ((CREATEREMOTETHREADEX)HookList[HOOK_CREATE_REMOTE_THREAD_EX].originalFunc)(hProcess, lpThreadAttributes, dwStackSize, lpStartAddress, lpParameter, dwCreationFlags, lpAttributeList, lpThreadId);
 }
 
 
@@ -113,8 +123,12 @@ LPVOID VirtualAlloc_Handler(LPVOID lpAddress, SIZE_T dwSize, DWORD  flAllocation
   BYTE* param3 = BuildParameter(&param3Size, PARAMETER_UINT32, "AllocType", flAllocationType);
   size_t param4Size;
   BYTE* param4 = BuildParameter(&param4Size, PARAMETER_UINT64, "AllocSize", dwSize);
+  size_t fnParamSize;
+  BYTE* fnParam = BuildParameter(fnParamSize, PARAMETER_ANSISTRING, "Func", "VirtualAlloc");
+  size_t dllParamSize;
+  BYTE* dllParam = BuildParameter(dllParamSize, PARAMETER_ANSISTRING, "DllName", "kernel32.dll");
 
-  size_t totalParamsSize = param1Size + param2Size + param3Size + param4Size;
+  size_t totalParamsSize = param1Size + param2Size + param3Size + param4Size + fnParamSize + dllParamSize;
   TELEMETRY_HEADER header = GetTelemetryHeader(TM_TYPE_API_CALL, totalParamsSize);
   
   size_t packetSize = totalParamsSize + sizeof(header);
@@ -126,11 +140,15 @@ LPVOID VirtualAlloc_Handler(LPVOID lpAddress, SIZE_T dwSize, DWORD  flAllocation
   memcpy(packet + sizeof(header) + param1Size, param2, param2Size);
   memcpy(packet + sizeof(header) + param1Size + param2Size, param3, param3Size);
   memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size, param4, param4Size);
+  memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size + param4Size, fnParam, fnParamSize);
+  memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size + param4Size + fnParamSize, dllParam, dllParamSize);
 
   free(param1);
   free(param2);
   free(param3);
   free(param4);
+  free(fnParam);
+  free(dllParam);
 
   EnqueuePacket(g_CriticalQueue, packet, packetSize);
   return ((VIRTUALALLOC)HookList[HOOK_VIRTUAL_ALLOC].originalFunc)(lpAddress, dwSize, flAllocationType, flProtect);
@@ -156,8 +174,12 @@ LPVOID VirtualAlloc2_Handler(
   DWORD pid = GetProcessId(Process);
   size_t param5Size;
   BYTE* param5 = BuildParameter(&param5Size, PARAMETER_UINT32, "TargetPid", pid);
+  size_t fnParamSize;
+  BYTE* fnParam = BuildParameter(fnParamSize, PARAMETER_ANSISTRING, "Func", "VirtualAlloc2");
+  size_t dllParamSize;
+  BYTE* dllParam = BuildParameter(dllParamSize, PARAMETER_ANSISTRING, "DllName", "kernel32.dll");
 
-  size_t totalParamsSize = param1Size + param2Size + param3Size + param4Size + param5Size;
+  size_t totalParamsSize = param1Size + param2Size + param3Size + param4Size + param5Size + fnParamSize + dllParamSize;
   TELEMETRY_HEADER header = GetTelemetryHeader(TM_TYPE_API_CALL, totalParamsSize);
 
   size_t packetSize = totalParamsSize + sizeof(header);
@@ -170,12 +192,16 @@ LPVOID VirtualAlloc2_Handler(
   memcpy(packet + sizeof(header) + param1Size + param2Size, param3, param3Size);
   memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size, param4, param4Size);
   memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size + param4Size, param5, param5Size);
+  memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size + param4Size + param5Size, fnParam, fnParamSize);
+  memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size + param4Size + param5Size + fnParamSize, dllParam, dllParamSize);
 
   free(param1);
   free(param2);
   free(param3);
   free(param4);
   free(param5);
+  free(fnParam);
+  free(dllParam);
 
   EnqueuePacket(g_CriticalQueue, packet, packetSize);
   return ((VIRTUALALLOC2)HookList[HOOK_VIRTUAL_ALLOC2].originalFunc)(Process, BaseAddress, Size, AllocationType, PageProtection, ExtendedParameters, ParameterCount);
@@ -199,8 +225,12 @@ LPVOID VirtualAllocEx_Handler(
   DWORD pid = GetProcessId(hProcess);
   size_t param5Size;
   BYTE* param5 = BuildParameter(&param5Size, PARAMETER_UINT32, "TargetPid", pid);
+  size_t fnParamSize;
+  BYTE* fnParam = BuildParameter(fnParamSize, PARAMETER_ANSISTRING, "Func", "VirtualAllocEx");
+  size_t dllParamSize;
+  BYTE* dllParam = BuildParameter(dllParamSize, PARAMETER_ANSISTRING, "DllName", "kernel32.dll");
 
-  size_t totalParamsSize = param1Size + param2Size + param3Size + param4Size + param5Size;
+  size_t totalParamsSize = param1Size + param2Size + param3Size + param4Size + param5Size + fnParamSize + dllParamSize;
   TELEMETRY_HEADER header = GetTelemetryHeader(TM_TYPE_API_CALL, totalParamsSize);
 
   size_t packetSize = totalParamsSize + sizeof(header);
@@ -213,12 +243,16 @@ LPVOID VirtualAllocEx_Handler(
   memcpy(packet + sizeof(header) + param1Size + param2Size, param3, param3Size);
   memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size, param4, param4Size);
   memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size + param4Size, param5, param5Size);
+  memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size + param4Size + param5Size, fnParam, fnParamSize);
+  memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size + param4Size + param5Size + fnParamSize, dllParam, dllParamSize);
 
   free(param1);
   free(param2);
   free(param3);
   free(param4);
   free(param5);
+  free(fnParam);
+  free(dllParam);
   
   EnqueuePacket(g_CriticalQueue, packet, packetSize);
   return ((VIRTUALALLOCEX)HookList[HOOK_VIRTUAL_ALLOC_EX].originalFunc)(hProcess, lpAddress, dwSize, flAllocationType, flProtect);
@@ -233,9 +267,13 @@ BOOL VirtualProtect_Handler(LPVOID lpAddress, SIZE_T dwSize, DWORD  flNewProtect
   BYTE* param1 = BuildParameter(&param1Size, PARAMETER_POINTER, "NewProtect", flNewProtect);
   size_t param2Size;
   BYTE* param2 = BuildParameter(&param2Size, PARAMETER_UINT32, "OldProtect", lpflOldProtect);
+  size_t fnParamSize;
+  BYTE* fnParam = BuildParameter(fnParamSize, PARAMETER_ANSISTRING, "Func", "VirtualProtect");
+  size_t dllParamSize;
+  BYTE* dllParam = BuildParameter(dllParamSize, PARAMETER_ANSISTRING, "DllName", "kernel32.dll");
 
   // create header and total packet
-  size_t totalParamsSize = param1Size + param2Size;
+  size_t totalParamsSize = param1Size + param2Size + fnParamSize + dllParamSize;
   TELEMETRY_HEADER header = GetTelemetryHeader(TM_TYPE_API_CALL, totalParamsSize);
 
   size_t packetSize = totalParamsSize + sizeof(header);
@@ -245,9 +283,13 @@ BOOL VirtualProtect_Handler(LPVOID lpAddress, SIZE_T dwSize, DWORD  flNewProtect
   memcpy(packet, &header, sizeof(header));
   memcpy(packet + sizeof(header), param1, param1Size);
   memcpy(packet + sizeof(header) + param1Size, param2, param2Size);
+  memcpy(packet + sizeof(header) + param1Size + param2Size, fnParam, fnParamSize);
+  memcpy(packet + sizeof(header) + param1Size + param2Size + fnParamSize, dllParam, dllParamSize);
 
   free(param1);
   free(param2);
+  free(fnParam);
+  free(dllParam);
 
   EnqueuePacket(g_CriticalQueue, packet, packetSize);
   return ((VIRTUALPROTECT)HookList[HOOK_VIRTUAL_PROTECT].originalFunc)(lpAddress, dwSize, flNewProtect, lpflOldProtect);
@@ -262,9 +304,13 @@ BOOL VirtualProtectEx_Handler(HANDLE hProcess, LPVOID lpAddress, SIZE_T dwSize, 
   DWORD pid = GetProcessId(hProcess);
   size_t param3Size;
   BYTE* param3 = BuildParameter(&param3Size, PARAMETER_UINT32, "TargetPid", pid);
+  size_t fnParamSize;
+  BYTE* fnParam = BuildParameter(fnParamSize, PARAMETER_ANSISTRING, "Func", "VirtualProtectEx");
+  size_t dllParamSize;
+  BYTE* dllParam = BuildParameter(dllParamSize, PARAMETER_ANSISTRING, "DllName", "kernel32.dll");
 
   // create header and total packet
-  size_t totalParamsSize = param1Size + param2Size + param3Size + param4Size + param5Size;
+  size_t totalParamsSize = param1Size + param2Size + param3Size + param4Size + param5Size + fnParamSize + dllParamSize;
   TELEMETRY_HEADER header = GetTelemetryHeader(TM_TYPE_API_CALL, totalParamsSize);
 
   size_t packetSize = totalParamsSize + sizeof(header);
@@ -275,10 +321,14 @@ BOOL VirtualProtectEx_Handler(HANDLE hProcess, LPVOID lpAddress, SIZE_T dwSize, 
   memcpy(packet + sizeof(header), param1, param1Size);
   memcpy(packet + sizeof(header) + param1Size, param2, param2Size);
   memcpy(packet + sizeof(header) + param1Size + param2Size, param3, param3Size);
+  memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size, fnParam, fnParamSize);
+  memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size + fnParam, dllParam, dllParamSize);
 
   free(param1);
   free(param2);
   free(param3);
+  free(fnParam);
+  free(dllParam);
 
   EnqueuePacket(g_CriticalQueue, packet, packetSize);
   return ((VIRTUALPROTECTEX)HookList[HOOK_VIRTUAL_PROTECT_EX].originalFunc)(hProcess, lpAddress, dwSize, flNewProtect, lpflOldProtect);
@@ -298,9 +348,13 @@ NTSTATUS NtProtectVM_Handler(
   DWORD pid = GetProcessId(ProcessHandle);
   size_t param3Size;
   BYTE* param3 = BuildParameter(&param3Size, PARAMETER_UINT32, "TargetPid", pid);
+  size_t fnParamSize;
+  BYTE* fnParam = BuildParameter(fnParamSize, PARAMETER_ANSISTRING, "Func", "NtProtectVirtualMemory");
+  size_t dllParamSize;
+  BYTE* dllParam = BuildParameter(dllParamSize, PARAMETER_ANSISTRING, "DllName", "ntdll.dll");
 
   // create header and total packet
-  size_t totalParamsSize = param1Size + param2Size + param3Size + param4Size + param5Size;
+  size_t totalParamsSize = param1Size + param2Size + param3Size + param4Size + param5Size + fnParamSize + dllParamSize;
   TELEMETRY_HEADER header = GetTelemetryHeader(TM_TYPE_API_CALL, totalParamsSize);
 
   size_t packetSize = totalParamsSize + sizeof(header);
@@ -311,10 +365,14 @@ NTSTATUS NtProtectVM_Handler(
   memcpy(packet + sizeof(header), param1, param1Size);
   memcpy(packet + sizeof(header) + param1Size, param2, param2Size);
   memcpy(packet + sizeof(header) + param1Size + param2Size, param3, param3Size);
+  memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size, fnParam, fnParamSize);
+  memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size + fnParamSize, dllParam, dllParamSize);
 
   free(param1);
   free(param2);
   free(param3);
+  free(fnParam);
+  free(dllParam);
 
   EnqueuePacket(g_CriticalQueue, packet, packetSize);
   return ((NTPROTECTVM)HookList[HOOK_NT_PROTECT_VM].originalFunc)(ProcessHandle, BaseAddress, RegionSize, NewProtection, OldProtection);
@@ -349,6 +407,10 @@ NTSTATUS NtAllocateVM_Handler(
   DWORD pid = GetProcessId(ProcessHandle);
   size_t param5Size;
   BYTE* param5 = BuildParameter(&param5Size, PARAMETER_UINT32, "TargetPid", pid);
+  size_t fnParamSize;
+  BYTE* fnParam = BuildParameter(fnParamSize, PARAMETER_ANSISTRING, "Func", "NtAllocateVirtualMemory");
+  size_t dllParamSize;
+  BYTE* dllParam = BuildParameter(dllParamSize, PARAMETER_ANSISTRING, "DllName", "ntdll.dll");
 
   size_t totalParamsSize = param1Size + param2Size + param3Size + param4Size + param5Size;
   TELEMETRY_HEADER header = GetTelemetryHeader(TM_TYPE_API_CALL, totalParamsSize);
@@ -363,12 +425,16 @@ NTSTATUS NtAllocateVM_Handler(
   memcpy(packet + sizeof(header) + param1Size + param2Size, param3, param3Size);
   memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size, param4, param4Size);
   memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size + param4Size, param5, param5Size);
+  memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size + param4Size + param5Size, fnParam, fnParamSize);
+  memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size + param4Size + param5Size + fnParamSize, dllParam, dllParamSize);
 
   free(param1);
   free(param2);
   free(param3);
   free(param4);
   free(param5);
+  free(fnParam);
+  free(dllParam);
  
   EnqueuePacket(g_CriticalQueue, packet, packetSize);
   return ((NTALLOCVM)HookList[HOOK_NT_ALLOC_VM].originalFunc)(ProcessHandle, BaseAddress, ZeroBits, RegionSize, AllocationType, Protect);
@@ -396,6 +462,10 @@ NTSTATUS NtAllocateVMEx_Handler(
   DWORD pid = GetProcessId(ProcessHandle);
   size_t param5Size;
   BYTE* param5 = BuildParameter(&param5Size, PARAMETER_UINT32, "TargetPid", pid);
+  size_t fnParamSize;
+  BYTE* fnParam = BuildParameter(fnParamSize, PARAMETER_ANSISTRING, "Func", "NtAllocateVirtualMemoryEx");
+  size_t dllParamSize;
+  BYTE* dllParam = BuildParameter(dllParamSize, PARAMETER_ANSISTRING, "DllName", "ntdll.dll");
 
   size_t totalParamsSize = param1Size + param2Size + param3Size + param4Size + param5Size;
   TELEMETRY_HEADER header = GetTelemetryHeader(TM_TYPE_API_CALL, totalParamsSize);
@@ -410,12 +480,16 @@ NTSTATUS NtAllocateVMEx_Handler(
   memcpy(packet + sizeof(header) + param1Size + param2Size, param3, param3Size);
   memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size, param4, param4Size);
   memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size + param4Size, param5, param5Size);
+  memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size + param4Size + param5Size, fnParam, fnParamSize);
+  memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size + param4Size + param5Size + fnParamSize, dllParam, dllParamSize);
 
   free(param1);
   free(param2);
   free(param3);
   free(param4);
   free(param5);
+  free(fnParam);
+  free(dllParam);
 
   EnqueuePacket(g_CriticalQueue, packet, packetSize);
   return ((NTALLOCVMEX)HookList[HOOK_NT_ALLOC_VM_EX].originalFunc)(ProcessHandle, BaseAddress, RegionSize, AllocationType, Protect, ExtendedParameters, ExtendedParameterCount);
@@ -442,6 +516,10 @@ NTSTATUS NtCreateThread_Handler(
   size_t param3Size;
   GetProcessId(ProcessHandle);
   BYTE* param3 = BuildParameter(&param3Size, PARAMETER_UINT32, "TargetPid", pid);
+  size_t fnParamSize;
+  BYTE* fnParam = BuildParameter(fnParamSize, PARAMETER_ANSISTRING, "Func", "NtCreateThread");
+  size_t dllParamSize;
+  BYTE* dllParam = BuildParameter(dllParamSize, PARAMETER_ANSISTRING, "DllName", "ntdll.dll");
 
   size_t totalParamsSize = param1Size + param2Size + param3Size;
   TELEMETRY_HEADER header = GetTelemetryHeader(TM_TYPE_API_CALL, totalParamsSize);
@@ -454,10 +532,14 @@ NTSTATUS NtCreateThread_Handler(
   memcpy(packet + sizeof(header), param1, param1Size);
   memcpy(packet + sizeof(header) + param1Size, param2, param2Size);
   memcpy(packet + sizeof(header) + param1Size + param2Size, param3, param3Size);
+  memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size, fnParam, fnParamSize);
+  memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size + fnParamSize, dllParam, dllParamSize);
 
   free(param1);
   free(param2);
   free(param3);
+  free(fnParam);
+  free(dllParam);
 
   EnqueuePacket(g_CriticalQueue, packet, packetSize);
   return ((NTCREATETHREAD)HookList[HOOK_NT_CREATE_THREAD].originalFunc)(ThreadHandle, DesiredAccess, ObjectAttributes, ProcessHandle, ClientId, ThreadContext, InitialTeb, CreateSuspended);
@@ -483,6 +565,10 @@ NTSTATUS NtCreateThreadEx_Handler(
   size_t param3Size;
   GetProcessId(ProcessHandle);
   BYTE* param3 = BuildParameter(&param3Size, PARAMETER_UINT32, "TargetPid", pid);
+  size_t fnParamSize;
+  BYTE* fnParam = BuildParameter(fnParamSize, PARAMETER_ANSISTRING, "Func", "NtCreateThreadEx");
+  size_t dllParamSize;
+  BYTE* dllParam = BuildParameter(dllParamSize, PARAMETER_ANSISTRING, "DllName", "ntdll.dll");
 
   size_t totalParamsSize = param1Size + param2Size + param3Size;
   TELEMETRY_HEADER header = GetTelemetryHeader(TM_TYPE_API_CALL, totalParamsSize);
@@ -495,10 +581,14 @@ NTSTATUS NtCreateThreadEx_Handler(
   memcpy(packet + sizeof(header), param1, param1Size);
   memcpy(packet + sizeof(header) + param1Size, param2, param2Size);
   memcpy(packet + sizeof(header) + param1Size + param2Size, param3, param3Size);
+  memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size, fnParam, fnParamSize);
+  memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size + fnParamSize, dllParam, dllParamSize);
 
   free(param1);
   free(param2);
   free(param3);
+  free(fnParam);
+  free(dllParam);
 
   EnqueuePacket(g_CriticalQueue, packet, packetSize);
   return ((NTCREATETHREADEX)HookList[HOOK_NT_CREATE_THREAD_EX].originalFunc)(ThreadHandle, DesiredAccess, ObjectAttributes, ProcessHandle, StartRoutine, Argument, CreateFlags, ZeroBits, StackSize, MaximumStackSize, AttributeList);
@@ -551,6 +641,10 @@ HANDLE OpenProcess_Handler(DWORD access, BOOL inherit, DWORD pid) {
   BYTE* param1 = BuildParameter(&param1Size, PARAMETER_UINT32, "TargetPid", pid);
   size_t param2Size;
   BYTE* param2 = BuildParameter(&param2Size, PARAMETER_UINT32, "Access", access);
+  size_t fnParamSize;
+  BYTE* fnParam = BuildParameter(fnParamSize, PARAMETER_ANSISTRING, "Func", "OpenProcess");
+  size_t dllParamSize;
+  BYTE* dllParam = BuildParameter(dllParamSize, PARAMETER_ANSISTRING, "DllName", "kernel32.dll");
 
   size_t totalParamsSize = param1Size + param2Size;
   TELEMETRY_HEADER header = GetTelemetryHeader(TM_TYPE_API_CALL, totalParamsSize);
@@ -562,9 +656,13 @@ HANDLE OpenProcess_Handler(DWORD access, BOOL inherit, DWORD pid) {
   memcpy(packet, &header, sizeof(header));
   memcpy(packet + sizeof(header), param1, param1Size);
   memcpy(packet + sizeof(header) + param1Size, param2, param2Size);
+  memcpy(packet + sizeof(header) + param1Size + param2Size, fnParam, fnParamSize);
+  memcpy(packet + sizeof(header) + param1Size + param2Size + fnParamSize, dllParam, dllParamSize);
 
   free(param1);
   free(param2);
+  free(fnParam);
+  free(dllParam);
 
   EnqueuePacket(g_StandardQueue, packet, packetSize);
   return ((OPENPROCESS)HookList[HOOK_OPEN_PROCESS].originalFunc)(access, inherit, pid);
@@ -581,8 +679,12 @@ NTSTATUS NtOpenProcess_Handler(
   BYTE* param1 = BuildParameter(&param1Size, PARAMETER_UINT32, "TargetPid", pid);
   size_t param2Size;
   BYTE* param2 = BuildParameter(&param2Size, PARAMETER_UINT32, "Access", DesiredAccess);
+  size_t fnParamSize;
+  BYTE* fnParam = BuildParameter(fnParamSize, PARAMETER_ANSISTRING, "Func", "NtOpenProcess");
+  size_t dllParamSize;
+  BYTE* dllParam = BuildParameter(dllParamSize, PARAMETER_ANSISTRING, "DllName", "ntdll.dll");
 
-  size_t totalParamsSize = param1Size + param2Size;
+  size_t totalParamsSize = param1Size + param2Size + fnParamSize + dllParamSize;
   TELEMETRY_HEADER header = GetTelemetryHeader(TM_TYPE_API_CALL, totalParamsSize);
 
   size_t packetSize = totalParamsSize + sizeof(header);
@@ -592,9 +694,13 @@ NTSTATUS NtOpenProcess_Handler(
   memcpy(packet, &header, sizeof(header));
   memcpy(packet + sizeof(header), param1, param1Size);
   memcpy(packet + sizeof(header) + param1Size, param2, param2Size);
+  memcpy(packet + sizeof(header) + param1Size + param2Size, fnParam, fnParamSize);
+  memcpy(packet + sizeof(header) + param1Size + param2Size + fnParamSize, dllParam, dllParamSize);
 
   free(param1);
   free(param2);
+  free(fnParam);
+  free(dllParam);
 
   EnqueuePacket(g_StandardQueue, packet, packetSize);
   return ((NTOPENPROCESS)HookList[HOOK_NT_OPEN_PROCESS].originalFunc)(ProcessHandle, DesiredAccess, ObjectAttributes, ClientId);
@@ -616,45 +722,42 @@ BOOL SetThreadContext_Handler(HANDLE arg0, const CONTEXT arg1) {
     return ((SETTHREADCONTEXT)HookList[HOOK_SET_THREAD_CONTEXT].originalFunc)(arg0, arg1);
 }
 */
+// Hooked for testing purposes, shouldn't be enabled outside dev builds
 int MessageBoxA_Handler(HWND hWnd, LPCSTR caption, LPCSTR text, UINT type) {
-    size_t packetSize = GetTelemetryPacketSize(TM_TYPE_API_CALL, 4);
-    // raw buffer for dynamically sized packets
-    BYTE* packet = (BYTE*)malloc(packetSize);
-    TELEMETRY_HEADER header = GetTelemetryHeader(TM_TYPE_API_CALL, packetSize - sizeof(TELEMETRY_HEADER));
-    API_CALL_HEADER apiHeader = GetApiCallHeader("user32.dll", "MessageBoxA", 4);
-    
-    API_ARG args[4];
-    args[0].arg.ptrValue = hWnd;
-    args[0].type = API_ARG_TYPE_PTR;
+  // create parameters
+  size_t param1Size;
+  BYTE* param1 = BuildParameter(&param1Size, PARAMETER_ANSISTRING, "Caption", caption);
+  size_t param2Size;
+  BYTE* param2 = BuildParameter(&param2Size, PARAMETER_ANSISTRING, "Text", text);
+  size_t param3Size;
+  BYTE* param3 = BuildParameter(&param3Size, PARAMETER_UINT32, "Type", type);
+  size_t fnParamSize;
+  BYTE* fnParam = BuildParameter(fnParamSize, PARAMETER_ANSISTRING, "Func", "NtOpenProcess");
+  size_t dllParamSize;
+  BYTE* dllParam = BuildParameter(dllParamSize, PARAMETER_ANSISTRING, "DllName", "ntdll.dll");
 
-    strncpy(args[1].arg.astrValue, caption, sizeof(args[1].arg.astrValue) -1);
-    args[1].arg.astrValue[sizeof(args[1].arg.astrValue)-1] = '\0';
-    args[1].type = API_ARG_TYPE_ASTRING;
-    
-    strncpy(args[2].arg.astrValue, text, sizeof(args[2].arg.astrValue) -1);
-    args[2].arg.astrValue[sizeof(args[2].arg.astrValue)-1] = '\0';
-    args[2].type = API_ARG_TYPE_ASTRING;
-    
-    args[3].arg.dwValue = type;
-    args[3].type = API_ARG_TYPE_DWORD;
+  size_t totalParamsSize = param1Size + param2Size + fnParamSize + dllParamSize;
+  TELEMETRY_HEADER header = GetTelemetryHeader(TM_TYPE_API_CALL, totalParamsSize);
 
-    // debug prints
-    /*fprintf(stderr, "full packet size: %d\nsizeof data: %d\nsizeof header: %d\n", sizeof(tm), sizeof(tm.data), sizeof(tm.header));
-    fprintf(stderr, "MessageBox hook\n\tHEADER\n\t\tpid: 0x%08X\n\t\ttype: 0x%08X\n\t\ttimestamp: 0x%X\n", header.pid, tm.header.type, tm.header.timeStamp);
-    fprintf(stderr, "\tDATA\n\t\ttid: 0x%08X\n\t\tdllName: %s\n\t\tfuncName: %s\n", tm.data.apiCall.tid, tm.data.apiCall.dllName, tm.data.apiCall.funcName);
-    fprintf(stderr, "\n\t\tARG 0\n\t\ttype: 0x%08X\n\t\tPTR value: %p\n", tm.data.apiCall.args[0].type, tm.data.apiCall.args[0].arg.ptrValue);
-    fprintf(stderr, "\n\t\tARG 1\n\t\ttype: 0x%08X\n\t\tANSI value: %s\n", tm.data.apiCall.args[1].type, tm.data.apiCall.args[1].arg.astrValue);
-    fprintf(stderr, "\n\t\tARG 2\n\t\ttype: 0x%08X\n\t\tANSI value: %s\n", tm.data.apiCall.args[2].type, tm.data.apiCall.args[2].arg.astrValue);
-    fprintf(stderr, "\n\t\tARG 3\n\t\ttype: 0x%08X\n\t\tDWORD value: 0x%08X\n", tm.data.apiCall.args[3].type, tm.data.apiCall.args[3].arg.dwValue);
-*/
-    // copy each component into buffer to form packet
-    memcpy(packet, &header, sizeof(header));
-    memcpy(packet + sizeof(header), &apiHeader, sizeof(apiHeader));
-    memcpy(packet + sizeof(header) + sizeof(apiHeader), &args, sizeof(args));
+  size_t packetSize = totalParamsSize + sizeof(header);
+  BYTE* packet = (BYTE*)malloc(packetSize);
 
-    DWORD dwBytesWritten;
-    WriteFile(hTelemetry, &packet, packetSize, &dwBytesWritten, NULL);
-    return ((MESSAGEBOXA)HookList[HOOK_MESSAGE_BOX_A].originalFunc)(hWnd, "Hooked!", "Hooked!", type);
+  // construct packet
+  memcpy(packet, &header, sizeof(header));
+  memcpy(packet, param1, param1Size);
+  memcpy(packet + param1Size, param2, param2Size);
+  memcpy(packet + param1Size + param2Size, param3, param3Size);
+  memcpy(packet + param1Size + param2Size + param3Size, fnParam, fnParamSize);
+  memcpy(packet + param1Size + param2Size + param3Size + fnParamSize, dllParam, dllParamSize);
+
+  free(param1);
+  free(param2);
+  free(param3);
+  free(fnParam);
+  free(dllParam);
+
+  EnqueuePacket(g_StandardQueue, packet, packetSize);
+  return ((MESSAGEBOXA)HookList[HOOK_MESSAGE_BOX_A].originalFunc)(hWnd, "Hooked!", "Hooked!", type);
 }
 
 BOOL CreateProcessA_Handler(
@@ -675,8 +778,12 @@ BOOL CreateProcessA_Handler(
   BYTE* param2 = BuildParameter(&param2Size, PARAMETER_ANSISTRING, "CmdLine", lpCommandLine);
   size_t param3Size;
   BYTE* param3 = BuildParameter(&param3Size, PARAMETER_UINT32, "Flags", dwCreationFlags);
+  size_t fnParamSize;
+  BYTE* fnParam = BuildParameter(fnParamSize, PARAMETER_ANSISTRING, "Func", "CreateProcessA");
+  size_t dllParamSize;
+  BYTE* dllParam = BuildParameter(dllParamSize, PARAMETER_ANSISTRING, "DllName", "kernel32.dll");
 
-  size_t totalParamsSize = param1Size + param2Size + param3Size;
+  size_t totalParamsSize = param1Size + param2Size + param3Size + fnParamSize + dllParamSize;
   TELEMETRY_HEADER header = GetTelemetryHeader(TM_TYPE_API_CALL, totalParamsSize);
 
   size_t packetSize = totalParamsSize + sizeof(header);
@@ -687,10 +794,14 @@ BOOL CreateProcessA_Handler(
   memcpy(packet + sizeof(header), param1, param1Size);
   memcpy(packet + sizeof(header) + param1Size, param2, param2Size);
   memcpy(packet + sizeof(header) + param1Size + param2Size, param3, param3Size);
+  memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size, fnParam, fnParamSize);
+  memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size + fnParamSize, dllParam, dllParamSize);
 
   free(param1);
   free(param2);
   free(param3);
+  free(fnParam);
+  free(dllParam);
 
   EnqueuePacket(g_StandardQueue, packet, packetSize);
   return ((CREATEPROCESSA)HookList[HOOK_CREATE_PROCESS_A].originalFunc)(lpApplicationName, lpCommandLine, lpProcessAttributes,
@@ -722,8 +833,12 @@ BOOL CreateProcessW_Handler(
   BYTE* param2 = BuildParameter(&param2Size, PARAMETER_ANSISTRING, "CmdLine", cmdLine);
   size_t param3Size;
   BYTE* param3 = BuildParameter(&param3Size, PARAMETER_UINT32, "Flags", dwCreationFlags);
+  size_t fnParamSize;
+  BYTE* fnParam = BuildParameter(fnParamSize, PARAMETER_ANSISTRING, "Func", "CreateProcessW");
+  size_t dllParamSize;
+  BYTE* dllParam = BuildParameter(dllParamSize, PARAMETER_ANSISTRING, "DllName", "kernel32.dll");
 
-  size_t totalParamsSize = param1Size + param2Size + param3Size;
+  size_t totalParamsSize = param1Size + param2Size + param3Size + fnParamSize + dllParamSize;
   TELEMETRY_HEADER header = GetTelemetryHeader(TM_TYPE_API_CALL, totalParamsSize);
 
   size_t packetSize = totalParamsSize + sizeof(header);
@@ -734,12 +849,16 @@ BOOL CreateProcessW_Handler(
   memcpy(packet + sizeof(header), param1, param1Size);
   memcpy(packet + sizeof(header) + param1Size, param2, param2Size);
   memcpy(packet + sizeof(header) + param1Size + param2Size, param3, param3Size);
+  memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size, fnParam, fnParamSize);
+  memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size + fnParamSize, dllParam, dllParamSize);
 
   free(param1);
   free(param2);
   free(param3);
-  free(appName);
-  free(cmdLine);
+  free(appName); // allocated string
+  free(cmdLine); // allocated string
+  free(fnParam);
+  free(dllParam);
 
   EnqueuePacket(g_StandardQueue, packet, packetSize);
   return ((CREATEPROCESSW)HookList[HOOK_CREATE_PROCESS_W].originalFunc)(lpApplicationName, lpCommandLine, lpProcessAttributes,
@@ -770,8 +889,12 @@ BOOL CreateProcessAsUserA_Handler(
   BYTE* param2 = BuildParameter(&param2Size, PARAMETER_ANSISTRING, "CmdLine", lpCommandLine);
   size_t param3Size;
   BYTE* param3 = BuildParameter(&param3Size, PARAMETER_UINT32, "Flags", dwCreationFlags);
+  size_t fnParamSize;
+  BYTE* fnParam = BuildParameter(fnParamSize, PARAMETER_ANSISTRING, "Func", "CreateProcessAsUserA");
+  size_t dllParamSize;
+  BYTE* dllParam = BuildParameter(dllParamSize, PARAMETER_ANSISTRING, "DllName", "advapi32.dll");
 
-  size_t totalParamsSize = param1Size + param2Size + param3Size;
+  size_t totalParamsSize = param1Size + param2Size + param3Size + fnParamSize + dllParamSize;
   TELEMETRY_HEADER header = GetTelemetryHeader(TM_TYPE_API_CALL, totalParamsSize);
 
   size_t packetSize = totalParamsSize + sizeof(header);
@@ -782,10 +905,14 @@ BOOL CreateProcessAsUserA_Handler(
   memcpy(packet + sizeof(header), param1, param1Size);
   memcpy(packet + sizeof(header) + param1Size, param2, param2Size);
   memcpy(packet + sizeof(header) + param1Size + param2Size, param3, param3Size);
+  memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size, fnParam, fnParamSize);
+  memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size + fnParamSize, dllParam, dllParamSize);
 
   free(param1);
   free(param2);
   free(param3);
+  free(fnParam);
+  free(dllParam);
 
   EnqueuePacket(g_StandardQueue, packet, packetSize);
   return ((CREATEPROCESSASUSERA)HookList[HOOK_CREATE_PROCESS_AS_USER_A].originalFunc)(hToken, lpApplicationName, lpCommandLine,
@@ -818,8 +945,12 @@ BOOL CreateProcessAsUserW_Handler(
   BYTE* param2 = BuildParameter(&param2Size, PARAMETER_ANSISTRING, "CmdLine", cmdLine);
   size_t param3Size;
   BYTE* param3 = BuildParameter(&param3Size, PARAMETER_UINT32, "Flags", dwCreationFlags);
+  size_t fnParamSize;
+  BYTE* fnParam = BuildParameter(fnParamSize, PARAMETER_ANSISTRING, "Func", "CreateProcessAsUserW");
+  size_t dllParamSize;
+  BYTE* dllParam = BuildParameter(dllParamSize, PARAMETER_ANSISTRING, "DllName", "advapi32.dll");
 
-  size_t totalParamsSize = param1Size + param2Size + param3Size;
+  size_t totalParamsSize = param1Size + param2Size + param3Size + fnParamSize + dllParamSize;
   TELEMETRY_HEADER header = GetTelemetryHeader(TM_TYPE_API_CALL, totalParamsSize);
 
   size_t packetSize = totalParamsSize + sizeof(header);
@@ -830,12 +961,16 @@ BOOL CreateProcessAsUserW_Handler(
   memcpy(packet + sizeof(header), param1, param1Size);
   memcpy(packet + sizeof(header) + param1Size, param2, param2Size);
   memcpy(packet + sizeof(header) + param1Size + param2Size, param3, param3Size);
+  memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size, fnParam, fnParamSize);
+  memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size + fnParamSize, dllParam, dllParamSize);
 
   free(param1);
   free(param2);
   free(param3);
-  free(appName);
-  free(cmdLine);
+  free(appName); // allocated string
+  free(cmdLine); // allocated string
+  free(fnParam);
+  free(dllParam);
 
   EnqueuePacket(g_StandardQueue, packet, packetSize);
   return ((CREATEPROCESSASUSERW)HookList[HOOK_CREATE_PROCESS_AS_USER_W].originalFunc)(hToken, lpApplicationName, lpCommandLine,
