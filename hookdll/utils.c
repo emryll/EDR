@@ -151,3 +151,18 @@ int FillFunctionHash(unsigned char* output, LPVOID address, size_t hashLen) {
 
     return 0;
 }
+
+// wideStr must be null-terminated.
+// Caller is responsible for freeing resulting string buffer
+char* WideToAnsi(const wchar_t* wideStr) {
+  if (!wideStr) return NULL;
+
+  int len = WideCharToMultiByte(CP_UTF8, 0, wideStr, -1, NULL, 0, NULL, NULL);
+  if (len <= 0) return NULL;
+
+  char* out = (char*)malloc(len);
+  if (!out) return NULL;
+
+  WideCharToMultiByte(CP_UTF8, 0, wideStr, -1, out, len, NULL, NULL);
+  return out;
+}
