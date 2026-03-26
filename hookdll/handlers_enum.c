@@ -644,7 +644,7 @@ NTSTATUS NtQuerySystemInformationEx_Handler(
 	return ((NTQUERYSYSTEMINFOEX)HookList[HOOK_NT_QUERY_SYSTEM_INFO_EX].originalFunc)(SystemInfoClass, InputBuffer, InputBufferLength, SystemInformation, SystemInformationLength, ReturnLength);
 }
 
-NtQueryInformationProcess_Handler(
+NTSTATUS NtQueryInformationProcess_Handler(
     HANDLE ProcessHandle,
     PROCESSINFOCLASS ProcessInformationClass,
     PVOID ProcessInformation,
