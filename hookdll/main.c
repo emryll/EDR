@@ -8,7 +8,7 @@ HANDLE hCommands = NULL;
 
 // This routine handles sending heartbeat, checking text section integrities and checking IAT integrity
 int CounterLoop() {
-    fprintf(stderr, "inside counterloop\n");
+    //fprintf(stderr, "inside counterloop\n");
     DWORD lastHeartbeat = 0;
     DWORD lastIntegrityCheck = 0;
     DWORD lastHookCheck = 0;
@@ -21,28 +21,28 @@ int CounterLoop() {
         }
 
         if (now - lastIntegrityCheck >= INTEGRITY_CHECK_INTERVAL) {
-            fprintf(stderr, "inside integrity check\n");
+            //fprintf(stderr, "inside integrity check\n");
             for (size_t i = 0; i < NumTrackedModules; i++) {
                 BOOL match = CheckTextSectionIntegrity(TrackedModules[i].textHash, TrackedModules[i].base);
-                fprintf(stderr, "after CheckTextSectionIntegrity\n");
+                //fprintf(stderr, "after CheckTextSectionIntegrity\n");
 
+                if (!match) continue;
                 //* create and send telemetry packet
-                size_t packetSize = GetTelemetryPacketSize(TM_TYPE_TEXT_INTEGRITY, 0);
-                // raw buffer for dynamically sized telemetry packets
-                BYTE* packet = (BYTE*)malloc(packetSize);
-                TELEMETRY_HEADER header = GetTelemetryHeader(TM_TYPE_TEXT_INTEGRITY, sizeof(TEXT_CHECK));
-                TEXT_CHECK result = GetTextIntegrityPacket(TrackedModules[i].name, match);
-                fprintf(stderr, "before memcpy\n");
-                // copy components into buffer to form single packet
-                memcpy(packet, &header, sizeof(header));
-                memcpy(packet + sizeof(header), &result, sizeof(result));
+                size_t paramSize;
+                BYTE* moduleParam = BuildParameter(&paramSize, PARAMETER_ANSISTRING, "Module", TrackedModules[i].name);
+                TELEMETRY_HEADER header = GetTelemetryHeader(TM_TYPE_TEXT_INTEGRITY);
 
-                fprintf(stderr, "before sending telemetry\n");
-                DWORD dwBytesWritten;
-                WriteFile(hTelemetry, packet, packetSize, &dwBytesWritten, NULL);
-                fprintf(stderr, "after sending telemetry\n");
+                // construct packet
+                size_t packetSize = paramSize + sizeof(header);
+                BYTE* packet = (BYTE*)malloc(packetSize);
+
+                memcpy(packet, header, sizeof(header));
+                memcpy(packet + sizeof(header), moduleParam, paramSize);
+                free(moduleParam);
+
+                EnqueuePacket(g_StandardQueue, packet, packetSize);
             }            
-            //TODO: hash check all functions in specified module?
+            //TODO: hash check all functions in specified module
         }
 
         if (now - lastHookCheck >= IAT_CHECK_INTERVAL) {

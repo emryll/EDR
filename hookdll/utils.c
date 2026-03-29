@@ -2,38 +2,14 @@
 #include <openssl/evp.h>
 #include "hook.h"
 
-size_t GetTelemetryPacketSize(DWORD type, size_t dynamicCount) {
-    switch (type) {
-        case TM_TYPE_API_CALL:
-            return sizeof(TELEMETRY_HEADER) + sizeof(API_CALL_HEADER) + (dynamicCount * sizeof(API_ARG));
-        case TM_TYPE_TEXT_INTEGRITY:
-            return sizeof(TELEMETRY_HEADER) + sizeof(TEXT_CHECK);
-        case TM_TYPE_IAT_INTEGRITY:
-            return sizeof(TELEMETRY_HEADER) + (dynamicCount * sizeof(IAT_MISMATCH));
-        case TM_TYPE_GENERIC_ALERT:
-            return sizeof(TELEMETRY_HEADER) + 8 + dynamicCount + 1;
-    }
-    return 0;
-}
-
 // data size is packet size - telemetry header
 TELEMETRY_HEADER GetTelemetryHeader(DWORD type, size_t dataSize) {
     TELEMETRY_HEADER header;
     header.pid       = GetCurrentProcessId();
+    header.tid = GetCurrentThreadId();
     header.type      = type;
     header.dataSize  = dataSize;
     header.timeStamp = time(NULL);
-    return header;
-}
-
-API_CALL_HEADER GetApiCallHeader(LPCSTR dllName, LPCSTR funcName, size_t argCount) {
-    API_CALL_HEADER header;
-    header.tid = GetCurrentThreadId();
-    strncpy(header.dllName, dllName, sizeof(header.dllName));
-    header.dllName[sizeof(header.dllName)] = '\0';
-    strncpy(header.funcName, funcName, sizeof(header.funcName));
-    header.funcName[sizeof(header.funcName)] = '\0';
-    header.argCount = argCount;
     return header;
 }
 
