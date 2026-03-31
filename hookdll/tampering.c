@@ -39,24 +39,21 @@ void HashTextSection(HMODULE moduleBase, unsigned char* output, unsigned int* ha
     // the section table comes after optional header
     PIMAGE_SECTION_HEADER sectionHeader = IMAGE_FIRST_SECTION(ntHeaders);
 
-    fprintf(stderr, "before looping section table\n");
     for (int i = 0; i < ntHeaders->FileHeader.NumberOfSections; i++) {
         if (strcmp((char*)sectionHeader[i].Name, ".text") == 0) {
             fprintf(stderr, "found .text section\n");
             ULONG_PTR textAddress = (ULONG_PTR)moduleBase + sectionHeader[i].VirtualAddress;
             DWORD textSize = sectionHeader[i].SizeOfRawData;
             fprintf(stderr, "\taddress: 0x%p\n\tsize: %d\n", textAddress, textSize);
+            if (textSize > MAX_TEXT_SECTION_SIZE) textSize = MAX_TEXT_SECTION_SIZE;
 
-            //TODO: set max text size
             //printf("[+] Found .text section!\n\t\\==={ Address: 0x%X\n\t \\=={ Size: %d\n\t  \\={ RVA: 0x%X\n", textAddress, textSize, sectionHeader[i].VirtualAddress);
-            //fprintf(stderr, "before EVP_MD_CTX_new()\n");
             EVP_MD_CTX *ctx = EVP_MD_CTX_new();
             if (!ctx) {
                 fprintf(stderr, "EVP_MD_CTX_new() failed\n");
                 return;
             }
 //            unsigned char hash[EVP_MAX_MD_SIZE];
-            fprintf(stderr, "after EVP_MD_CTX_new()\n");
             *hashLen = 0;
 
             //fprintf(stderr, "before EVP_DigestInit_ex()\n");
@@ -66,7 +63,6 @@ void HashTextSection(HMODULE moduleBase, unsigned char* output, unsigned int* ha
                 EVP_MD_CTX_free(ctx);
                 return;
             }
-            fprintf(stderr, "after EVP_DigestInit_ex()\n");
 
             //fprintf(stderr, "before EVP_DigestUpdate()\n");
             // Update the hash with the .text section data
@@ -75,7 +71,6 @@ void HashTextSection(HMODULE moduleBase, unsigned char* output, unsigned int* ha
                 EVP_MD_CTX_free(ctx);
                 return;
             }
-            fprintf(stderr, "after EVP_DigestUpdate()\n");
 
             //fprintf(stderr, "before EVP_DigestFinal_ex()\n");
             // Finalize the hash and get the result
@@ -84,7 +79,6 @@ void HashTextSection(HMODULE moduleBase, unsigned char* output, unsigned int* ha
                 EVP_MD_CTX_free(ctx);
                 return;
             }
-            fprintf(stderr, "after EVP_DigestFinal_ex()\n");
 
             EVP_MD_CTX_free(ctx);  // Free the context
 
@@ -100,11 +94,9 @@ void HashTextSection(HMODULE moduleBase, unsigned char* output, unsigned int* ha
 }
 
 BOOL CheckTextSectionIntegrity(unsigned char* originalHash, HMODULE moduleBase) {
-    fprintf(stderr, "inside CheckTextSection\n");
     unsigned int hashLen;
     unsigned char currentHash[EVP_MAX_MD_SIZE];
     HashTextSection(moduleBase, currentHash, &hashLen);
-    fprintf(stderr, "after HashTextSection\n");
     return memcmp(originalHash, currentHash, hashLen) == 0; 
 }
 
@@ -143,13 +135,13 @@ void PerformIntegrityChecks(HMODULE ownBase, HMODULE ntBase, HMODULE k32Base) {
 
 // returns array of ints, corresponding to hooked functions with mismatch, value being index to hooklist
 // caller must free resulting array
-int* CheckHookHashIntegrity(int* mismatchCount) {
-    int *mismatches = NULL;
+char** CheckHookHashIntegrity(size_t* mismatchCount) {
+    char** mismatches = NULL; // pointers to names
     size_t count = 0;
     size_t capacity = 0;
 
     for (size_t i = 0; i < HookListSize; i++) {
-        unsigned char* funcHash;
+        unsigned char funcHash[EVP_MAX_MD_SIZE];
         if (HookList[i].originalFunc == NULL) {
             continue;
         }
@@ -166,7 +158,7 @@ int* CheckHookHashIntegrity(int* mismatchCount) {
             continue;
         }
         unsigned int hashLen;
-        if (EVP_DigestFinal_ex(ctx, funcHash, &hashLen)) {
+        if (EVP_DigestFinal_ex(ctx, funcHash, &hashLen) != 1) {
             EVP_MD_CTX_free(ctx);
             continue;
         }
@@ -174,7 +166,7 @@ int* CheckHookHashIntegrity(int* mismatchCount) {
             if (count >= capacity) {
                 // start with 4, after that when you need more space, double it
                 size_t newCapacity = (capacity == 0) ? 4 : capacity * 2;
-                int* new_arr = realloc(mismatches, newCapacity * sizeof(int));
+                char** new_arr = realloc(mismatches, newCapacity * sizeof(char*));
                 if (!new_arr) {
                     fprintf(stderr, "Memory allocation failed\n");
                     *mismatchCount = count;
@@ -183,12 +175,14 @@ int* CheckHookHashIntegrity(int* mismatchCount) {
                 mismatches = new_arr;
                 capacity = newCapacity;
             }
-            mismatches[count] = i;
-            count++;;
+            mismatches[count] = HookList[i].funcName;
+            count++;
         }
     }
+    *mismatchCount = count;
     return mismatches;
 }
+
 
 // This function will check integrity of IAT entries, and in case of mismatches it will send
 // the results to the agent process. If the IAT entry is a hook, the address to be compared against

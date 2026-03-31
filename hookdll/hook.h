@@ -30,7 +30,7 @@ typedef struct {
     LPVOID moduleBase;
     FARPROC originalFunc;
     FARPROC handler;
-    unsigned char funcHash[SHA256_DIGEST_LENGTH];
+    unsigned char funcHash[EVP_MAX_MD_SIZE];
 } HookEntry;
 
 typedef struct {
@@ -106,36 +106,14 @@ typedef enum {
     FILE_ACTION_MOVE,
 } FILE_ACTION;
 
-// file system events' telemetry packet (etw)
 typedef struct {
-    char path[260];
-    FILE_ACTION action;
-} FILE_EVENT;
-
-// registry events' telemetry packet (etw)
-typedef struct {
-    char path[260];
-    char value[260];
-} REG_EVENT;
-
-// text integrity checks' telemetry packet
-typedef struct {
-    BOOL result;
-    char module[260];
-} TEXT_CHECK;
-
-//TODO change this shit lmaoo, dont list so many damn matches especially with strings. makes it 67kB
-typedef struct {
-    size_t mismatchCount;
-    char mismatches[260][260];
-} FUNC_CHECK;
-
-typedef struct {
-    DWORD  pid;
-    DWORD  type;
-    size_t  dataSize;
-    time_t timeStamp;
-} TELEMETRY_HEADER;
+    DWORD   pid; // 0->4
+    DWORD   tid; // 4->8
+    DWORD   dataSize; // 8->12
+    time_t  timeStamp; // 12->20
+    uint8_t type; // 20->21
+    uint8_t eventId; // 21->22
+} __attribute__((packed)) TELEMETRY_HEADER;
 
 typedef struct {
     char funcName[64];

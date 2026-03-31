@@ -45,6 +45,27 @@ int CounterLoop() {
             //TODO: hash check all functions in specified module
         }
 
+        if (now - lastFuncCheck >= FUNC_CHECK_INTERVAL) {
+            size_t mismatchCount;
+            char** mismatches = CheckHookHashIntegrity(&mismatchCount);
+            if (mismatchCount > 0) {
+                // create parameter
+                size_t paramSize;
+                BYTE* param = BuildArrayParameter(&paramSize, PARAMETER_ASTR_ARRAY, "Mismatches", mismatches, mismatchCount);
+                TELEMETRY_HEADER header = GetTelemetryHeader(TM_TYPE_FUNC_INTEGRITY, paramSize);
+            
+                // construct packet
+                size_t packetSize = paramSize + sizeof(header);
+                BYTE* packet = (BYTE*)malloc(packetSize);
+                memcpy(packet, &header, sizeof(header));
+                memcpy(packet + sizeof(header), param, paramSize);
+
+                EnqueuePacket(g_StandardQueue, packet, packetSize);
+                free(mismatches);
+                free(param);
+            }
+        }
+
         if (now - lastHookCheck >= IAT_CHECK_INTERVAL) {
             // check main modules IAT
             fprintf(stderr, "creating IAT check thread\n");
