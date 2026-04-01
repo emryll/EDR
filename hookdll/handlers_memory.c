@@ -25,16 +25,18 @@ BOOL VirtualProtect_Handler(LPVOID lpAddress, SIZE_T dwSize, DWORD  flNewProtect
   }
   // create parameters
   size_t param1Size;
-  BYTE* param1 = BuildParameter(&param1Size, PARAMETER_POINTER, "NewProtect", flNewProtect);
+  BYTE* param1 = BuildParameter(&param1Size, PARAMETER_POINTER, "Address", lpAddress);
   size_t param2Size;
-  BYTE* param2 = BuildParameter(&param2Size, PARAMETER_UINT32, "OldProtect", lpflOldProtect);
+  BYTE* param2 = BuildParameter(&param2Size, PARAMETER_UINT32, "NewProtect", flNewProtect);
+  size_t param3Size;
+  BYTE* param3 = BuildParameter(&param3Size, PARAMETER_UINT32, "OldProtect", lpflOldProtect);
   size_t fnParamSize;
   BYTE* fnParam = BuildParameter(&fnParamSize, PARAMETER_ANSISTRING, "Func", "VirtualProtect");
   size_t dllParamSize;
   BYTE* dllParam = BuildParameter(&dllParamSize, PARAMETER_ANSISTRING, "DllName", "kernel32.dll");
 
   // create header and total packet
-  size_t totalParamsSize = param1Size + param2Size + fnParamSize + dllParamSize;
+  size_t totalParamsSize = param1Size + param2Size + param3Size + fnParamSize + dllParamSize;
   TELEMETRY_HEADER header = GetTelemetryHeader(TM_TYPE_API_CALL, totalParamsSize);
 
   size_t packetSize = totalParamsSize + sizeof(header);
@@ -44,11 +46,13 @@ BOOL VirtualProtect_Handler(LPVOID lpAddress, SIZE_T dwSize, DWORD  flNewProtect
   memcpy(packet, &header, sizeof(header));
   memcpy(packet + sizeof(header), param1, param1Size);
   memcpy(packet + sizeof(header) + param1Size, param2, param2Size);
-  memcpy(packet + sizeof(header) + param1Size + param2Size, fnParam, fnParamSize);
-  memcpy(packet + sizeof(header) + param1Size + param2Size + fnParamSize, dllParam, dllParamSize);
+  memcpy(packet + sizeof(header) + param1Size + param2Size, param3, param3Size);
+  memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size, fnParam, fnParamSize);
+  memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size + fnParamSize, dllParam, dllParamSize);
 
   free(param1);
   free(param2);
+  free(param3);
   free(fnParam);
   free(dllParam);
 
@@ -59,19 +63,21 @@ BOOL VirtualProtect_Handler(LPVOID lpAddress, SIZE_T dwSize, DWORD  flNewProtect
 BOOL VirtualProtectEx_Handler(HANDLE hProcess, LPVOID lpAddress, SIZE_T dwSize, DWORD  flNewProtect, PDWORD lpflOldProtect) {
   // create parameters
   size_t param1Size;
-  BYTE* param1 = BuildParameter(&param1Size, PARAMETER_POINTER, "NewProtect", flNewProtect);
+  BYTE* param1 = BuildParameter(&param1Size, PARAMETER_POINTER, "Address", lpAddress);
   size_t param2Size;
-  BYTE* param2 = BuildParameter(&param2Size, PARAMETER_UINT32, "OldProtect", lpflOldProtect);
-  DWORD pid = GetProcessId(hProcess);
+  BYTE* param2 = BuildParameter(&param2Size, PARAMETER_UINT32, "NewProtect", flNewProtect);
   size_t param3Size;
-  BYTE* param3 = BuildParameter(&param3Size, PARAMETER_UINT32, "TargetPid", pid);
+  BYTE* param3 = BuildParameter(&param3Size, PARAMETER_UINT32, "OldProtect", lpflOldProtect);
+  DWORD pid = GetProcessId(hProcess);
+  size_t param4Size;
+  BYTE* param4 = BuildParameter(&param4Size, PARAMETER_UINT32, "TargetPid", pid);
   size_t fnParamSize;
   BYTE* fnParam = BuildParameter(&fnParamSize, PARAMETER_ANSISTRING, "Func", "VirtualProtectEx");
   size_t dllParamSize;
   BYTE* dllParam = BuildParameter(&dllParamSize, PARAMETER_ANSISTRING, "DllName", "kernel32.dll");
 
   // create header and total packet
-  size_t totalParamsSize = param1Size + param2Size + param3Size + fnParamSize + dllParamSize;
+  size_t totalParamsSize = param1Size + param2Size + param3Size + param4Size + fnParamSize + dllParamSize;
   TELEMETRY_HEADER header = GetTelemetryHeader(TM_TYPE_API_CALL, totalParamsSize);
 
   size_t packetSize = totalParamsSize + sizeof(header);
@@ -82,12 +88,14 @@ BOOL VirtualProtectEx_Handler(HANDLE hProcess, LPVOID lpAddress, SIZE_T dwSize, 
   memcpy(packet + sizeof(header), param1, param1Size);
   memcpy(packet + sizeof(header) + param1Size, param2, param2Size);
   memcpy(packet + sizeof(header) + param1Size + param2Size, param3, param3Size);
-  memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size, fnParam, fnParamSize);
-  memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size + fnParam, dllParam, dllParamSize);
+  memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size, param4, param4Size);
+  memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size + param4Size, fnParam, fnParamSize);
+  memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size + param4Size + fnParam, dllParam, dllParamSize);
 
   free(param1);
   free(param2);
   free(param3);
+  free(param4);
   free(fnParam);
   free(dllParam);
 
@@ -103,19 +111,21 @@ NTSTATUS NtProtectVM_Handler(
     PULONG OldProtection) {
   // create parameters
   size_t param1Size;
-  BYTE* param1 = BuildParameter(&param1Size, PARAMETER_POINTER, "NewProtect", NewProtection);
+  BYTE* param1 = BuildParameter(&param1Size, PARAMETER_POINTER, "Address", lpAddress);
   size_t param2Size;
-  BYTE* param2 = BuildParameter(&param2Size, PARAMETER_UINT32, "OldProtect", OldProtection);
-  DWORD pid = GetProcessId(ProcessHandle);
+  BYTE* param2 = BuildParameter(&param2Size, PARAMETER_UINT32, "NewProtect", NewProtection);
   size_t param3Size;
-  BYTE* param3 = BuildParameter(&param3Size, PARAMETER_UINT32, "TargetPid", pid);
+  BYTE* param3 = BuildParameter(&param3Size, PARAMETER_UINT32, "OldProtect", OldProtection);
+  DWORD pid = GetProcessId(ProcessHandle);
+  size_t param5Size;
+  BYTE* param4 = BuildParameter(&param4Size, PARAMETER_UINT32, "TargetPid", pid);
   size_t fnParamSize;
   BYTE* fnParam = BuildParameter(fnParamSize, PARAMETER_ANSISTRING, "Func", "NtProtectVirtualMemory");
   size_t dllParamSize;
   BYTE* dllParam = BuildParameter(dllParamSize, PARAMETER_ANSISTRING, "DllName", "ntdll.dll");
 
   // create header and total packet
-  size_t totalParamsSize = param1Size + param2Size + param3Size + fnParamSize + dllParamSize;
+  size_t totalParamsSize = param1Size + param2Size + param3Size + param4Size + fnParamSize + dllParamSize;
   TELEMETRY_HEADER header = GetTelemetryHeader(TM_TYPE_API_CALL, totalParamsSize);
 
   size_t packetSize = totalParamsSize + sizeof(header);
@@ -126,12 +136,14 @@ NTSTATUS NtProtectVM_Handler(
   memcpy(packet + sizeof(header), param1, param1Size);
   memcpy(packet + sizeof(header) + param1Size, param2, param2Size);
   memcpy(packet + sizeof(header) + param1Size + param2Size, param3, param3Size);
-  memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size, fnParam, fnParamSize);
-  memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size + fnParamSize, dllParam, dllParamSize);
+  memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size, param4, param4Size);
+  memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size + param4Size, fnParam, fnParamSize);
+  memcpy(packet + sizeof(header) + param1Size + param2Size + param3Size + param4Size + fnParamSize, dllParam, dllParamSize);
 
   free(param1);
   free(param2);
   free(param3);
+  free(param4);
   free(fnParam);
   free(dllParam);
 
