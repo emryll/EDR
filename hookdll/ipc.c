@@ -1,5 +1,9 @@
 #include <windows.h>
 
+//?=============================================================================+
+//?  This function implements the initialization of IPC comms with the agent.   |
+//?=============================================================================+
+
 void WaiterThread() {
     DWORD myPid = GetCurrentProcessId();
     while(1) {

@@ -3,8 +3,13 @@
 #include <stdio.h>
 #include "hook.h"
 
-#define EVP_MAX_MD_SIZE 64
+//?=================================================================================+
+//?   This file implements functionality to detect tampering in the host process.   |
+//?   These get called in the counter loop, running checks periodically (main.c)    |
+//?=================================================================================+
 
+
+// Send a heartbeat signal to the provided pipe.
 void heartbeat(HANDLE hPipe) {
     HEARTBEAT heartbeat;
     strcpy(heartbeat.Heartbeat, "heartbeat");
@@ -18,7 +23,7 @@ void heartbeat(HANDLE hPipe) {
     }
 }
 
-// returns hash of modules .text
+// Get the SHA256 hash of a provided module's .text section.
 void HashTextSection(HMODULE moduleBase, unsigned char* output, unsigned int* hashLen) {
     fprintf(stderr, "modulebase: 0x%p\n", moduleBase);
     PIMAGE_DOS_HEADER dosHeader = (PIMAGE_DOS_HEADER)moduleBase;
@@ -82,6 +87,7 @@ void HashTextSection(HMODULE moduleBase, unsigned char* output, unsigned int* ha
 
             EVP_MD_CTX_free(ctx);  // Free the context
 
+            // printing for debug testing version
             printf("[i] Hash of .text section: ");
             for (int i = 0; i < *hashLen; i++) {
                 printf("%02X ", output[i]);
@@ -93,6 +99,8 @@ void HashTextSection(HMODULE moduleBase, unsigned char* output, unsigned int* ha
     printf("\n[!] Couldn't find .text section!\n");
 }
 
+// Check the integrity of a provided module's .text section.
+// This wrapper function compares originally saved hash to fresh hash.
 BOOL CheckTextSectionIntegrity(unsigned char* originalHash, HMODULE moduleBase) {
     unsigned int hashLen;
     unsigned char currentHash[EVP_MAX_MD_SIZE];
@@ -133,8 +141,10 @@ void PerformIntegrityChecks(HMODULE ownBase, HMODULE ntBase, HMODULE k32Base) {
     }
 }*/
 
-// returns array of ints, corresponding to hooked functions with mismatch, value being index to hooklist
-// caller must free resulting array
+
+// Check the memory integrity of every function in the HookList.
+// This works by iterating each function and comparing saved hash to fresh hash.
+// Returns an ansi string array of the found mismatches, which must be freed by caller.
 char** CheckHookHashIntegrity(size_t* mismatchCount) {
     char** mismatches = NULL; // pointers to names
     size_t count = 0;
@@ -187,17 +197,18 @@ char** CheckHookHashIntegrity(size_t* mismatchCount) {
 // This function will check integrity of IAT entries, and in case of mismatches it will send
 // the results to the agent process. If the IAT entry is a hook, the address to be compared against
 // is the hook handler address. Otherwise the IAT address is compared against the EAT address of said function. 
-void CheckIatIntegrity(LPVOID moduleBase) {
+IAT_MISMATCH* CheckIatIntegrity(LPVOID moduleBase, size_t* mismatchCount) {
     fprintf(stderr, "[i] Checking IAT integrity...\n");
 
     // parse PE header to find the import descriptor, in order to parse IAT
+    // this function handles most of the pe parsing boilerplate code here.
     PIMAGE_IMPORT_DESCRIPTOR importDescriptor = GetIatImportDescriptor(moduleBase);
     if (importDescriptor == NULL) {
         //TODO: log fail
-        return;
+        return NULL;
     }
 
-    size_t mismatchCount = 0;
+    size_t count = 0;
     size_t arrayCapacity = 0;
     IAT_MISMATCH* mismatches = NULL;
     // parse each iat entry
@@ -246,7 +257,7 @@ void CheckIatIntegrity(LPVOID moduleBase) {
                 if ((LPVOID)firstThunk->u1.Function != eatAddress) {
                     //? EAT - IAT mismatch! Iat hook detected
                     // make sure mismatches array is large enough
-                    if (mismatchCount >= arrayCapacity) {
+                    if (count >= arrayCapacity) {
                         // start with 4, double as needed
                         size_t newCapacity = arrayCapacity == 0 ? 4 : arrayCapacity * 2;
                         IAT_MISMATCH* newArray = realloc(mismatches, newCapacity * sizeof(IAT_MISMATCH));
@@ -259,16 +270,16 @@ void CheckIatIntegrity(LPVOID moduleBase) {
                     }
 
                     //* add entry
-                    mismatches[mismatchCount].address = (LPVOID)firstThunk->u1.Function;
-                    strncpy(mismatches[mismatchCount].funcName, functionName->Name, sizeof(mismatches[mismatchCount].funcName)-1);
-                    mismatches[mismatchCount].funcName[sizeof(mismatches[mismatchCount].funcName)-1] = '\0';
-                    mismatchCount++;
+                    mismatches[count].address = (LPVOID)firstThunk->u1.Function;
+                    strncpy(mismatches[count].funcName, functionName->Name, sizeof(mismatches[count].funcName)-1);
+                    mismatches[count].funcName[sizeof(mismatches[count].funcName)-1] = '\0';
+                    count++;
                 }
             } else if ((LPVOID)firstThunk->u1.Function != hook->handler) {
                 //? This IAT entry is one of our hooks, and it is a mismatch
                 
                 // make sure mismatches array is large enough
-                if (mismatchCount >= arrayCapacity) {
+                if (count >= arrayCapacity) {
                     // start with 4, double as needed
                     size_t newCapacity = arrayCapacity == 0 ? 4 : arrayCapacity * 2;
                     IAT_MISMATCH* newArray = realloc(mismatches, newCapacity * sizeof(IAT_MISMATCH));
@@ -281,10 +292,10 @@ void CheckIatIntegrity(LPVOID moduleBase) {
                 }
                 
                 //* add entry
-                mismatches[mismatchCount].address = (LPVOID)firstThunk->u1.Function;
-                strncpy(mismatches[mismatchCount].funcName, functionName->Name, sizeof(mismatches[mismatchCount].funcName)-1);
-                mismatches[mismatchCount].funcName[sizeof(mismatches[mismatchCount].funcName)-1] = '\0';
-                mismatchCount++;
+                mismatches[count].address = (LPVOID)firstThunk->u1.Function;
+                strncpy(mismatches[count].funcName, functionName->Name, sizeof(mismatches[count].funcName)-1);
+                mismatches[count].funcName[sizeof(mismatches[count].funcName)-1] = '\0';
+                count++;
             }
 
             originalFirstThunk++;
@@ -292,81 +303,6 @@ void CheckIatIntegrity(LPVOID moduleBase) {
         }
         importDescriptor++;
     }
-
-    if (mismatchCount > 0) {
-        //* send telemetry to agent
-        size_t packetSize = GetTelemetryPacketSize(TM_TYPE_IAT_INTEGRITY, mismatchCount);
-        BYTE* packet = (BYTE*)malloc(packetSize);
-        TELEMETRY_HEADER header = GetTelemetryHeader(TM_TYPE_IAT_INTEGRITY, packetSize - sizeof(TELEMETRY_HEADER));
-
-        memcpy(packet, &header, sizeof(header));
-        memcpy(packet + sizeof(header), mismatches, mismatchCount * sizeof(IAT_MISMATCH));
-
-        DWORD dwBytesWritten;
-        WriteFile(hTelemetry, &packet, packetSize, &dwBytesWritten, NULL);
-        free(mismatches);
-    }
-    return;
+    *mismatchCount = count;
+    return mismatches;
 }
-/*
-//TODO finish returning of results
-// this function checks ONLY the hooks, not any other parts of IAT
-int* CheckIatHookIntegrity(LPVOID moduleBase, size_t* mismatchCount) {
-    // parse PE header to find the import descriptor, in order to parse IAT
-    PIMAGE_IMPORT_DESCRIPTOR importDescriptor = GetIatImportDescriptor(moduleBase);
-    if (importDescriptor == NULL) {
-        //TODO: log fail
-        return NULL;
-    }
-
-    mismatchCount = 0;
-    // parse each iat entry
-    while (importDescriptor->Name != 0) {
-		libraryName = (LPCSTR)((DWORD_PTR)importDescriptor->Name + (DWORD_PTR)moduleBase);
-        if (strcmp(libraryName, "") == 0) {
-            break;
-        }
-        
-        PIMAGE_THUNK_DATA originalFirstThunk = NULL, firstThunk = NULL;
-        originalFirstThunk = (PIMAGE_THUNK_DATA)((DWORD_PTR)moduleBase + importDescriptor->OriginalFirstThunk);
-        firstThunk = (PIMAGE_THUNK_DATA)((DWORD_PTR)moduleBase + importDescriptor->FirstThunk);
-        
-        while (originalFirstThunk->u1.AddressOfData != 0) {
-            //? do you need to check if originalFirstThunk or firstThunk is NULL?
-            functionName = (PIMAGE_IMPORT_BY_NAME)((DWORD_PTR)moduleBase + originalFirstThunk->u1.AddressOfData);
-
-            // skip null function entry
-            if (firstThunk->u1.Function == 0) {
-                originalFirstThunk++;
-                firstThunk++;
-                continue;
-            }
-            functionName = (PIMAGE_IMPORT_BY_NAME)((DWORD_PTR)moduleBase + originalFirstThunk->u1.AddressOfData);
-            // skip ordinal imports, and maybe also proxied imports(?) that was the idea
-            if ((SIZE_T)functionName & 0xff00000000000000) {
-                originalFirstThunk++;
-                firstThunk++;
-                continue;
-            }
-
-           
-            // check if its a function that weve hooked or not
-            HookEntry* hook = FindHook(functionName->Name);
-            if (hook == NULL) { // not found
-                continue;
-            } else if (firstThunk->u1.Function != hook->handler) {
-                //? Hook integrity check failed!
-                (*mismatchCount)++;
-            }
-
-            originalFirstThunk++;
-            firstThunk++;
-        }
-        importDescriptor++;
-    }
-
-    if (*mismatchCount > 0) {
-        return mismatches;
-    }
-    return NULL;
-}*/

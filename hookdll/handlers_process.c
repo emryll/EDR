@@ -2,12 +2,21 @@
 #include <winternl.h>
 #include "hook.h"
 
-//?=======================================================================+
-//?  Files beginning with handlers_ contain API hook handler functions.   |
-//?    They are only called by the hooks, never anywhere else.            |
-//?  This file contains the handlers for APIs dealing with processes.     |
-//?=======================================================================+
+//?=======================================================================================+
+//?  These are the functions API hooks point to, which get triggered when a hooked API    |
+//?   is called. Hook handlers forward information of the event to the agent via          |
+//?   named pipes. Packets include API, dll, caller, and parameters with additional       |
+//?   info about the call (args or context). Each handler follows the same blueprint.     |
+//?                                                                                       |
+//?  Handlers start by optionally checking if the call is interesting, and if it is       |
+//?   deemed uninteresting, the call will pass through immediately without sending        |
+//?   a packet. After the filtering, the telemetry packet gets built, and placed in the   |
+//?   the packet queue. Finally the handlers pass the call through and return to caller.  |
+//?                                                                                       |
+//?  Hook handlers are only ever called by hooks; they should never be called directly.   |
+//?=======================================================================================+
 
+//* This file contains the hook handlers for process related APIs
 
 //*===============[ Create Process ]===========================
 

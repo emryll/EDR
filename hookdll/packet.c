@@ -7,8 +7,8 @@
 //?  A (v4) packet is created by creating parameters and a telemetry header,       |
 //?   then constructing a packet out of those, starting with the header.           |
 //?                                                                                |
-//?  Use GetTelemetryHeader() to create the header, BuildParameter() for           |
-//?   scalar parameters, and BuildArrayParameter() for array parameters.           |
+//?  Use GetTelemetryHeader(...) to create the header, BuildParameter(...) for     |
+//?   scalar parameters, and BuildArrayParameter(...) for array parameters.        |
 //?================================================================================+
 
 //* This is the outer function for creating an array parameter buffer.
@@ -227,7 +227,7 @@ BYTE* GetUint64Array(UINT64* arr, size_t arrSize, size_t* bufSize) {
 	return buf;
 }
 
-// Returns a raw buffer containing provided uint64 array
+// Returns a raw buffer containing provided boolean array
 BYTE* GetBooleanArray(BOOL* arr, size_t arrSize, size_t* bufSize) {
     *bufSize = arrSize * sizeof(BOOL);
 	BYTE* buf = (BYTE*)malloc(*bufSize);

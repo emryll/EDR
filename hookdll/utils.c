@@ -2,6 +2,11 @@
 #include <openssl/evp.h>
 #include "hook.h"
 
+//?===========================================================+
+//?   This file contains miscellaneous utility functions.     |
+//?===========================================================+
+
+
 // data size is packet size - telemetry header
 TELEMETRY_HEADER GetTelemetryHeader(DWORD type, size_t dataSize) {
     TELEMETRY_HEADER header;
@@ -11,18 +16,6 @@ TELEMETRY_HEADER GetTelemetryHeader(DWORD type, size_t dataSize) {
     header.dataSize  = dataSize;
     header.timeStamp = time(NULL);
     return header;
-}
-
-TEXT_CHECK GetTextIntegrityPacket(LPCSTR moduleName, BOOL match) {
-    TEXT_CHECK packet;
-    if (match) {
-        packet.result = TRUE;
-    } else {
-        packet.result = FALSE;
-    }
-    strncpy(packet.module, moduleName, sizeof(packet.module));
-    packet.module[sizeof(packet.module)] = '\0';
-    return packet;
 }
 
 // generic alert is in the following format:
@@ -40,6 +33,7 @@ BYTE* GetGenericAlertPacket(LPCSTR description) {
     return packet;
 }
 
+// Sends a dll injection alert packet to the agent.
 void SendDllInjectionAlert() {
     LPCSTR description = "DLL Injection detected! Detected thread creation attempt with LoadLibrary* as start routine. Access denied.";
     BYTE* alert = GetGenericAlertPacket(description);
@@ -91,7 +85,8 @@ PIMAGE_IMPORT_DESCRIPTOR GetIatImportDescriptor(LPVOID moduleBase) {
 	return (PIMAGE_IMPORT_DESCRIPTOR)(importsDirectory.VirtualAddress + (DWORD_PTR)moduleBase);
 }
 
-// works
+// Fill a given buffer with SHA256 hash taken of arbitrary location in memory.
+// This is used to fill the original function hashes in the HookList at startup.
 int FillFunctionHash(unsigned char* output, LPVOID address, size_t hashLen) {
     EVP_MD_CTX* ctx = EVP_MD_CTX_new();
     if (!ctx) {

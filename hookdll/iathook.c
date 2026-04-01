@@ -3,6 +3,12 @@
 #include <stdio.h>
 #include "hook.h"
 
+//?============================================================================+
+//?  This file contains the implementation of IAT hooking of API functions.    |
+//?  Function declarations, prototypes, and related enums are in the header.   |
+//?============================================================================+
+
+
 //TODO: read from a config file, currently kind of a ghetto system for enabling hooks...
 //? To enable or disable hooks, add them here and the dll to TrackedModules
 //? The function will also need a handler function in handlers.c and also

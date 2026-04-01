@@ -2,6 +2,22 @@
 #include <winternl.h>
 #include "hook.h"
 
+//?=======================================================================================+
+//?  These are the functions API hooks point to, which get triggered when a hooked API    |
+//?   is called. Hook handlers forward information of the event to the agent via          |
+//?   named pipes. Packets include API, dll, caller, and parameters with additional       |
+//?   info about the call (args or context). Each handler follows the same blueprint.     |
+//?                                                                                       |
+//?  Handlers start by optionally checking if the call is interesting, and if it is       |
+//?   deemed uninteresting, the call will pass through immediately without sending        |
+//?   a packet. After the filtering, the telemetry packet gets built, and placed in the   |
+//?   the packet queue. Finally the handlers pass the call through and return to caller.  |
+//?                                                                                       |
+//?  Hook handlers are only ever called by hooks; they should never be called directly.   |
+//?=======================================================================================+
+
+//* This file contains the hook handlers for APIs which don't fit under other categories
+
 //*===================[ Token Apis ]=======================
 
 BOOL AdjustTokenPrivileges_Handler(
@@ -489,3 +505,45 @@ NTSTATUS NtDuplicateObject_Handler(
 }
 
 //TODO:================[ Worker Factory Apis ]===================
+
+
+//*=========================[ Other ]======================
+
+
+// Hooked for testing purposes, shouldn't be enabled outside dev builds
+int MessageBoxA_Handler(HWND hWnd, LPCSTR caption, LPCSTR text, UINT type) {
+  // create parameters
+  size_t param1Size;
+  BYTE* param1 = BuildParameter(&param1Size, PARAMETER_ANSISTRING, "Caption", caption);
+  size_t param2Size;
+  BYTE* param2 = BuildParameter(&param2Size, PARAMETER_ANSISTRING, "Text", text);
+  size_t param3Size;
+  BYTE* param3 = BuildParameter(&param3Size, PARAMETER_UINT32, "Type", type);
+  size_t fnParamSize;
+  BYTE* fnParam = BuildParameter(fnParamSize, PARAMETER_ANSISTRING, "Func", "MessageBoxA");
+  size_t dllParamSize;
+  BYTE* dllParam = BuildParameter(dllParamSize, PARAMETER_ANSISTRING, "DllName", "user32.dll");
+
+  size_t totalParamsSize = param1Size + param2Size + param3Size + fnParamSize + dllParamSize;
+  TELEMETRY_HEADER header = GetTelemetryHeader(TM_TYPE_API_CALL, totalParamsSize);
+
+  size_t packetSize = totalParamsSize + sizeof(header);
+  BYTE* packet = (BYTE*)malloc(packetSize);
+
+  // construct packet
+  memcpy(packet, &header, sizeof(header));
+  memcpy(packet, param1, param1Size);
+  memcpy(packet + param1Size, param2, param2Size);
+  memcpy(packet + param1Size + param2Size, param3, param3Size);
+  memcpy(packet + param1Size + param2Size + param3Size, fnParam, fnParamSize);
+  memcpy(packet + param1Size + param2Size + param3Size + fnParamSize, dllParam, dllParamSize);
+
+  free(param1);
+  free(param2);
+  free(param3);
+  free(fnParam);
+  free(dllParam);
+
+  EnqueuePacket(g_StandardQueue, packet, packetSize);
+  return ((MESSAGEBOXA)HookList[HOOK_MESSAGE_BOX_A].originalFunc)(hWnd, "Hooked!", "Hooked!", type);
+}

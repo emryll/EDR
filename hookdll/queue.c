@@ -94,6 +94,7 @@ int DequeuePacket(TELEMETRY_QUEUE* queue, HANDLE hPipe, int retries) {
     LPVOID packet = queue->queue[index].packet;
     size_t size = queue->queue[index].size;
 
+    //TODO: FREE PACKET!!!!!!!!!!!!!!!!
     //* attempt to send packet
     DWORD bytesWritten;
     for (int i = 0; i <= retries; i++) {
@@ -110,22 +111,22 @@ void QueueWorker(HANDLE hPipe) {
     while (1) {
         WaitForMultipleObjects(2, events, FALSE, INFINITE);
         //* Process priority packet queue first
+        ResetEvent(g_CriticalQueue.event);
         while (!QueueIsEmpty(&g_CriticalQueue)) {
             int result = DequeuePacket(&g_CriticalQueue, hPipe, 2);
             if (result == ERROR_FAILED_WRITE) {
                 //TODO: log error
             }
         }
-        ResetEvent(g_CriticalQueue.event);
 
         //* Process standard packet queue 
+        ResetEvent(g_StandardQueue.event);
         while (!QueueIsEmpty(&g_StandardQueue)) {
             int result = DequeuePacket(&g_StandardQueue, hPipe, 0);
             if (result == ERROR_FAILED_WRITE) {
                 //TODO: log error
             }
         }
-        ResetEvent(g_StandardQueue.event);
     }
 }
 
