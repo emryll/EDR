@@ -26,6 +26,10 @@ import (
 	"golang.org/x/sys/windows"
 )
 
+//?=====================================================+
+//?   This file implements general utility functions.   |
+//?=====================================================+
+
 func RemoveSliceMember[T any](slice []T, index int) []T {
 	return append(slice[:index], slice[index+1:]...)
 }

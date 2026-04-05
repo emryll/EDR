@@ -9,6 +9,12 @@ import (
 	"github.com/fatih/color"
 )
 
+//?===================================================================+
+//?  This file implements the general types for the Agent's codebase  |
+//?  Some more specialized types are found in other files, and        |
+//?   constants are found in consts.go, and global vars in main.go    |
+//?===================================================================+
+
 const VERSION = "0.0.1-demo"
 
 type Process struct {

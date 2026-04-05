@@ -10,6 +10,11 @@ import (
 	yaml "gopkg.in/yaml.v3"
 )
 
+//?=====================================================================+
+//?   This file implements the YAML parsing of behavioral patterns.     |
+//?   The main function to be called is CompileBehaviorPatterns(...)    |
+//?=====================================================================+
+
 // Custom boolean type for yaml.
 // Makes it so that default value is "not set" instead of false
 type Bool struct {

@@ -6,6 +6,12 @@ import (
 	"path/filepath"
 )
 
+//?==================================================================================+
+//?   This file contains the top-level core of the behavioral analysis engine.       |
+//?   Other parts of the engine are found in patterns.go, events.go, conditions.go,  |
+//?    filter.go, timeline.go, groups.go and pools.go.                               |
+//?==================================================================================+
+
 // This is the function you should call to trigger a behavioral scan for a process.
 // It will go through each pattern and check if it matches telemetry history.
 // Before running this, BehaviorPatterns global list must be loaded (should happen at startup)
@@ -177,7 +183,6 @@ Events:
 	return &result
 }
 
-// This unfortunately currently parses the entire global handle table, therefore should be avoided
 func (c HandleComponent) GetResult(p *Process) *ComponentResult {
 	var result ComponentResult
 	//TODO: check universal override
@@ -187,6 +192,8 @@ func (c HandleComponent) GetResult(p *Process) *ComponentResult {
 	return &result
 }
 
+// Return the dynamic parameter as a regular Go value.
+// This method is generally used to print a value with "%v"
 func (p Parameter) GetValue() any {
 	switch p.Type {
 	case PARAMETER_ANSISTRING:
@@ -209,7 +216,8 @@ func (p Parameter) GetValue() any {
 	return "(invalid parameter)"
 }
 
-// setting verbose as true displays corresponding timeline of events
+// Print the details of a pattern match.
+// Setting verbose as true displays corresponding timeline of events
 func (p PatternMatch) Print(verbose ...bool) {
 	fmt.Printf("\n%s\n\n[*] Process %d: %s\n\tCategory: %v\n\tScore: %d\n\t? %s\n\n%s\n", stars, p.Pid, p.Result.Name, p.Result.Category[:], p.Result.Score, p.Result.Description, stars)
 	if len(verbose) > 0 && verbose[0] {

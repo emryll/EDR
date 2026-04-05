@@ -9,6 +9,11 @@ import (
 	"github.com/fatih/color"
 )
 
+//?============================================================================+
+//?  This file implements the functionality for creating and parsing           |
+//?  parameters in the v4 telemetry packet design. Use ParseParameters(...)    |
+//?============================================================================+
+
 // Outer function that will parse every parameter in provided data buffer.
 // Name must not be null-terminated. Size must be size in bytes. Header portion must be null-terminated.
 func ParseParameters(data []byte) []Parameter {

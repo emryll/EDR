@@ -8,8 +8,10 @@ import (
 	"strings"
 )
 
-//? This file contains the declarations and methods of Event interface.
-//? Events describe telemetry data. Actual actions which have happened in a process.
+//?====================================================================================+
+//?  This file contains the declarations and helper methods of the Event interface.    |
+//?  Events describe telemetry data. Actual actions which have happened in a process.  |
+//?====================================================================================+
 
 type Event interface {
 	GetEventType() int
@@ -60,36 +62,120 @@ type HandleEntry struct {
 	Access uint32
 }
 
-func (f FileEvent) GetTimestamps() []int64 {
-	return f.TimeStamps
+// Get all events of a certain API call (e.g. WriteProcessMemory)
+// Optionally you can define a whitelist/filter of unique identifiers
+func (a *ApiTelemetryIndex) GetEvents(api string, id ...string) []*ApiEvent {
+	a.mu.RLock()
+	if _, exists := a.Events[api]; !exists {
+		return nil
+	}
+	var (
+		events = make([]*ApiEvent, 0, len(a.Events[api]))
+		ids    = make(map[string]bool, len(id))
+	)
+	for _, v := range id {
+		ids[v] = true
+	}
+
+	for key, event := range a.Events[api] {
+		// check filter if one is set
+		if len(ids) == 0 || ids[key] {
+			events = append(events, event)
+		}
+	}
+	a.mu.RUnlock()
+	return events
 }
 
-func (r RegistryEvent) GetTimestamps() []int64 {
-	return r.TimeStamps
+// Get all registry events under a given registry path.
+// Note that it is not recursive (i.e. subdirs not included).
+// Optionally you can specify a specific action the event should be.
+func (r *RegTelemetryIndex) GetEventsByPath(path string, action string) []*RegistryEvent {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.RegPathTree[path] == nil {
+		return nil
+	}
+
+	var events []*RegistryEvent
+	for _, event := range r.RegPathTree[path] {
+		if action == "" || event.Action == action {
+			events = append(events, event)
+		}
+	}
+	return events
 }
 
-func (a ApiEvent) GetTimestamps() []int64 {
-	return a.TimeStamps
+// Get all registry events of a specified action (e.g. create_key)
+func (r *RegTelemetryIndex) GetEventsByAction(action string) []*RegistryEvent {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.RegActionTree[action] == nil {
+		return nil
+	}
+
+	var events []*RegistryEvent
+	for _, event := range r.RegActionTree[action] {
+		events = append(events, event)
+	}
+	return events
 }
 
-func (h HandleEntry) GetTimestamps() []int64 {
-	return []int64{0} // wont this mess up timeline checks? //TODO: should add special case
+// Get all file system events of a specified action (e.g. write)
+func (f *FileTelemetryIndex) GetEventsByAction(action string) []*FileEvent {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
+	if f.FileActionTree[action] == nil {
+		return nil
+	}
+
+	var events []*FileEvent
+	for _, event := range f.FileActionTree[action] {
+		events = append(events, event)
+	}
+	return events
 }
 
-func (a ApiEvent) GetEventType() int {
-	return TM_TYPE_API_CALL
+// Get all file system events described by dir, path and action.
+// dir is required and declares the directory that the events must be under.
+// Note that the directory structure is not recursive (i.e. subdirs dont count)
+// Optionally you can define a filename and/or action further filtering events.
+func (f *FileTelemetryIndex) GetEventsByPath(dir string, base *string, action *string) []*FileEvent {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
+	if dir == "" || f.FilePathTree[dir] == nil || len(f.FilePathTree[dir]) == 0 {
+		return nil
+	}
+	if base != nil {
+		if f.FilePathTree[dir][*base] == nil || len(f.FilePathTree[dir][*base]) == 0 {
+			return nil
+		}
+		return getEventsOfAction(f.FilePathTree[dir][*base], action)
+	}
+
+	var events []*FileEvent
+	for _, file := range f.FilePathTree[dir] {
+		events = append(events, getEventsOfAction(file, action)...)
+	}
+	return events
 }
 
-func (f FileEvent) GetEventType() int {
-	return TM_TYPE_FILE_EVENT
-}
-
-func (r RegistryEvent) GetEventType() int {
-	return TM_TYPE_REG_EVENT
-}
-
-func (handle HandleEntry) GetEventType() int {
-	return EVENT_TYPE_HANDLE
+// Internal helper for finding file system events in PathTree.
+func getEventsOfAction(actionMap map[string]map[string]*FileEvent, action *string) []*FileEvent {
+	var events []*FileEvent
+	for a, idMap := range actionMap {
+		if action != nil && a != *action {
+			continue
+		}
+		for _, event := range idMap {
+			events = append(events, event)
+		}
+	}
+	return events
 }
 
 func (f FileEvent) GetParameter(name string) Parameter {
@@ -123,7 +209,10 @@ func (handle HandleEntry) GetParameter(name string) Parameter {
 }
 
 func (a ApiEvent) GetParameter(name string) Parameter {
-
+	if param, exists := a.Parameters[name]; exists {
+		return param
+	}
+	return Parameter{}
 }
 
 func (r RegistryEvent) GetParameter(name string) Parameter {
@@ -177,69 +266,6 @@ func (handle HandleEntry) GetParameterWithOptions(options ...string) Parameter {
 		}
 	}
 	return Parameter{}
-}
-
-// Derive a string encoded key for the specific event.
-// Events with the same identifier are considered duplicates.
-func (a ApiEvent) GetUniqueIdentifier() string {
-	// parameters need to be iterated in alphabetical order
-	keys := make([]string, 0, len(a.Parameters))
-	for k := range a.Parameters {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-
-	// the identifier is in the following format:
-	// tid + param_1 + value_1 + ... + param_n + value_n
-	var b strings.Builder
-	fmt.Fprintf(&b, "%d", a.ThreadId)
-	for _, k := range keys {
-		b.WriteString(k)
-		fmt.Fprintf(&b, "%v", a.Parameters[k].GetValue())
-	}
-	return b.String()
-}
-
-// Derive a string encoded "unique" identifier.
-// Events with the same identifier are considered duplicates.
-func (f FileEvent) GetUniqueIdentifier() string {
-	// parameters need to be iterated in alphabetical order
-	keys := make([]string, 0, len(f.Parameters))
-	for k := range f.Parameters {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-
-	// the identifier is in the following format:
-	// filepath + param_1 + value_1 + ... + param_n + value_n
-	var b strings.Builder
-	b.WriteString(f.Path)
-	for _, k := range keys {
-		b.WriteString(k)
-		fmt.Fprintf(&b, "%v", f.Parameters[k].GetValue())
-	}
-	return b.String()
-}
-
-// Derive a string encoded key for the specific event.
-// Two events with the same identifier are consided duplicates.
-func (r RegistryEvent) GetUniqueIdentifier() string {
-	// parameters need to be iterated in alphabetical order
-	keys := make([]string, 0, len(r.Parameters))
-	for k := range r.Parameters {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-
-	// the identifier is in the following format:
-	// filepath + param_1 + value_1 + ... + param_n + value_n
-	var b strings.Builder
-	b.WriteString(r.Path)
-	for _, k := range keys {
-		b.WriteString(k)
-		fmt.Fprintf(&b, "%v", r.Parameters[k].GetValue())
-	}
-	return b.String()
 }
 
 // Add an event to the corresponding process' telemetry history.
@@ -405,117 +431,97 @@ func (r *RegistryEvent) RemoveFromHistory(pid int) {
 	}
 }
 
-// Get all events of a certain API call (e.g. WriteProcessMemory)
-// Optionally you can define a whitelist/filter of unique identifiers
-func (a *ApiTelemetryIndex) GetEvents(api string, id ...string) []*ApiEvent {
-	a.mu.RLock()
-	if _, exists := a.Events[api]; !exists {
-		return nil
+// Derive a string encoded key for the specific event.
+// Events with the same identifier are considered duplicates.
+func (a ApiEvent) GetUniqueIdentifier() string {
+	// parameters need to be iterated in alphabetical order
+	keys := make([]string, 0, len(a.Parameters))
+	for k := range a.Parameters {
+		keys = append(keys, k)
 	}
-	var (
-		events = make([]*ApiEvent, 0, len(a.Events[api]))
-		ids    = make(map[string]bool, len(id))
-	)
-	for _, v := range id {
-		ids[v] = true
-	}
+	sort.Strings(keys)
 
-	for key, event := range a.Events[api] {
-		if len(ids) == 0 || ids[key] {
-			events = append(events, event)
-		}
+	// the identifier is in the following format:
+	// tid + param_1 + value_1 + ... + param_n + value_n
+	var b strings.Builder
+	fmt.Fprintf(&b, "%d", a.ThreadId)
+	for _, k := range keys {
+		b.WriteString(k)
+		fmt.Fprintf(&b, "%v", a.Parameters[k].GetValue())
 	}
-	a.mu.RUnlock()
-	return events
+	return b.String()
 }
 
-// Get all registry events under a given registry path.
-// Note that it is not recursive (i.e. subdirs not included).
-// Optionally you can specify a specific action the event should be.
-func (r *RegTelemetryIndex) GetEventsByPath(path string, action string) []*RegistryEvent {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	if r.RegPathTree[path] == nil {
-		return nil
+// Derive a string encoded "unique" identifier.
+// Events with the same identifier are considered duplicates.
+func (f FileEvent) GetUniqueIdentifier() string {
+	// parameters need to be iterated in alphabetical order
+	keys := make([]string, 0, len(f.Parameters))
+	for k := range f.Parameters {
+		keys = append(keys, k)
 	}
+	sort.Strings(keys)
 
-	var events []*RegistryEvent
-	for _, event := range r.RegPathTree[path] {
-		if action == "" || event.Action == action {
-			events = append(events, event)
-		}
+	// the identifier is in the following format:
+	// filepath + param_1 + value_1 + ... + param_n + value_n
+	var b strings.Builder
+	b.WriteString(f.Path)
+	for _, k := range keys {
+		b.WriteString(k)
+		fmt.Fprintf(&b, "%v", f.Parameters[k].GetValue())
 	}
-	return events
+	return b.String()
 }
 
-// Get all registry events of a specified action (e.g. create_key)
-func (r *RegTelemetryIndex) GetEventsByAction(action string) []*RegistryEvent {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	if r.RegActionTree[action] == nil {
-		return nil
+// Derive a string encoded key for the specific event.
+// Two events with the same identifier are consided duplicates.
+func (r RegistryEvent) GetUniqueIdentifier() string {
+	// parameters need to be iterated in alphabetical order
+	keys := make([]string, 0, len(r.Parameters))
+	for k := range r.Parameters {
+		keys = append(keys, k)
 	}
+	sort.Strings(keys)
 
-	var events []*RegistryEvent
-	for _, event := range r.RegActionTree[action] {
-		events = append(events, event)
+	// the identifier is in the following format:
+	// filepath + param_1 + value_1 + ... + param_n + value_n
+	var b strings.Builder
+	b.WriteString(r.Path)
+	for _, k := range keys {
+		b.WriteString(k)
+		fmt.Fprintf(&b, "%v", r.Parameters[k].GetValue())
 	}
-	return events
+	return b.String()
 }
 
-// Get all file system events of a specified action (e.g. write)
-func (f *FileTelemetryIndex) GetEventsByAction(action string) []*FileEvent {
-	f.mu.RLock()
-	defer f.mu.RUnlock()
-
-	if f.FileActionTree[action] == nil {
-		return nil
-	}
-
-	var events []*FileEvent
-	for _, event := range f.FileActionTree[action] {
-		events = append(events, event)
-	}
-	return events
+func (f FileEvent) GetTimestamps() []int64 {
+	return f.TimeStamps
 }
 
-// Get all file system events described by dir, path and action.
-// dir is required and declares the directory that the events must be under.
-// Note that the directory structure is not recursive (i.e. subdirs dont count)
-// Optionally you can define a filename and/or action further filtering events.
-func (f *FileTelemetryIndex) GetEventsByPath(dir string, base *string, action *string) []*FileEvent {
-	f.mu.RLock()
-	defer f.mu.RUnlock()
-
-	if dir == "" || f.FilePathTree[dir] == nil || len(f.FilePathTree[dir]) == 0 {
-		return nil
-	}
-	if base != nil {
-		if f.FilePathTree[dir][*base] == nil || len(f.FilePathTree[dir][*base]) == 0 {
-			return nil
-		}
-		return getEventsOfAction(f.FilePathTree[dir][*base], action)
-	}
-
-	var events []*FileEvent
-	for _, file := range f.FilePathTree[dir] {
-		events = append(events, getEventsOfAction(file, action)...)
-	}
-	return events
+func (r RegistryEvent) GetTimestamps() []int64 {
+	return r.TimeStamps
 }
 
-// Internal helper for finding file system events in PathTree.
-func getEventsOfAction(actionMap map[string]map[string]*FileEvent, action *string) []*FileEvent {
-	var events []*FileEvent
-	for a, idMap := range actionMap {
-		if action != nil && a != *action {
-			continue
-		}
-		for _, event := range idMap {
-			events = append(events, event)
-		}
-	}
-	return events
+func (a ApiEvent) GetTimestamps() []int64 {
+	return a.TimeStamps
+}
+
+func (h HandleEntry) GetTimestamps() []int64 {
+	return []int64{0} // wont this mess up timeline checks? //TODO: should add special case
+}
+
+func (a ApiEvent) GetEventType() int {
+	return TM_TYPE_API_CALL
+}
+
+func (f FileEvent) GetEventType() int {
+	return TM_TYPE_FILE_EVENT
+}
+
+func (r RegistryEvent) GetEventType() int {
+	return TM_TYPE_REG_EVENT
+}
+
+func (handle HandleEntry) GetEventType() int {
+	return EVENT_TYPE_HANDLE
 }

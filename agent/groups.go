@@ -1,5 +1,10 @@
 package main
 
+//?============================================================+
+//?  This file implements the groups for condition sets.       |
+//?  The group is used to define what conditions are allowed.  |
+//?============================================================+
+
 const (
 	GROUP_INVALID_API_OPTIONS = -1
 	GROUP_UNKNOWN             = 0

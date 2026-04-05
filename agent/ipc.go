@@ -17,6 +17,11 @@ import (
 	"github.com/fatih/color"
 )
 
+//?==============================================================+
+//?   This file implements IPC via named pipes. Receiving data   |
+//?    from telemetry sources and sending data as commands.      |
+//?==============================================================+
+
 var (
 	HEARTBEAT_PIPE string = "\\\\.\\pipe\\vgrd_hb"
 	TELEMETRY_PIPE string = "\\\\.\\pipe\\vgrd_tm"
@@ -160,8 +165,7 @@ func telemetryHandler(conn net.Conn, wg *sync.WaitGroup, ctx context.Context) {
 			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
 				continue
 			}
-			if err == io.EOF {
-				//yellow.Log("[telemetry] Client disconnected (EOF)")
+			if err == io.EOF { // client disconnected
 				return
 			}
 			red.Log("[telemetry] Failed to read telemetry header\n")
@@ -174,11 +178,9 @@ func telemetryHandler(conn net.Conn, wg *sync.WaitGroup, ctx context.Context) {
 			red.Log("[telemetry] binary.Read failed on buffer: %v\n", err)
 			continue
 		}
-		//fmt.Printf("Header - PID: %d, Type: %d, TimeStamp: %d, DataSize: %d\n",
-		//tmHeader.Pid, tmHeader.Type, tmHeader.TimeStamp, tmHeader.DataSize)
 
 		// skip garbage data
-		if tmHeader.Type > 10 || tmHeader.DataSize > TM_MAX_DATA_SIZE {
+		if tmHeader.Type > 15 || tmHeader.DataSize > TM_MAX_DATA_SIZE {
 			red.Log("[telemetry] Invalid header - Type: %d, DataSize: %d (max: %d)",
 				tmHeader.Type, tmHeader.DataSize, TM_MAX_DATA_SIZE)
 			continue
@@ -190,6 +192,7 @@ func telemetryHandler(conn net.Conn, wg *sync.WaitGroup, ctx context.Context) {
 		if tmHeader.DataSize <= 0 {
 			yellow.Log("[telemetry] Warning: Data size: %d", tmHeader.DataSize)
 		}
+
 		//* now read the actual data which comes after the header
 		dataBuf := make([]byte, tmHeader.DataSize)
 		conn.SetReadDeadline(time.Now().Add(5 * time.Second))
@@ -200,8 +203,9 @@ func telemetryHandler(conn net.Conn, wg *sync.WaitGroup, ctx context.Context) {
 			continue
 		}
 
-		//* this will add it to process' history and handle logging
-		tmHeader.Log(dataBuf)
+		//* Parse parameters and put into source-specific container
+		params := ParseParameters(dataBuf)
+		tmHeader.Log(params) // this one handles everything after you have params + header
 	}
 }
 

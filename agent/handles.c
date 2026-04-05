@@ -4,6 +4,14 @@
 #include <stdio.h>
 #include "utils.h"
 
+//?==========================================================================+
+//?   This file has helper functions in C used for handle based detection.   |
+//?   This part is written in C instead of Go, because these APIs and        |
+//?     NT structures are much more of a pain to write in Go...              |
+//?==========================================================================+
+
+// Get the global handle table via NtQuerySystemInformation. It also gets object information,
+// which calls NtQueryObject. Note that this call is quite heavy, currently typically taking 1000ms.
 // Caller must free returned handle table with FreeHandleTable. NULL is returned upon failure.
 HANDLE_ENTRY* GetGlobalHandleTable(size_t* handleCount) {
     HANDLE_ENTRY* handleTable = NULL;
@@ -69,6 +77,7 @@ HANDLE_ENTRY* GetGlobalHandleTable(size_t* handleCount) {
     return handleTable;
 }
 
+// Get packet parameters for a handle event. Remember to free buffer after use.
 BYTE* GetHandleParameters(HANDLE hObject, DWORD objectType, size_t* paramsSize) {
     BYTE* parameters = NULL;
     switch (objectType) {

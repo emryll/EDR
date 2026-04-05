@@ -18,6 +18,11 @@ import (
 //? If you're wondering why some comments in the codebase start with a symbol like this one;
 //* It's because I'm using a "better comments" plugin, where these symbols color the comment a certain color.
 
+//?==================================================================+
+//?   This file contains the main routine, global variables, and     |
+//?     implements the main scan scheduler routines.                 |
+//?==================================================================+
+
 var ( // all global variables belong here
 	white            *Color
 	green            *Color
@@ -158,6 +163,7 @@ func PeriodicScanHandler(wg *sync.WaitGroup, priorityTasks chan Scan, tasks chan
 	}
 }
 
+// * This is not up to date currently. will be updated soon...
 func main() {
 	var wg sync.WaitGroup
 	ctx, cancel := context.WithCancel(context.Background())

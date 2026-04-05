@@ -15,7 +15,7 @@ import (
 //?   and checking if a given condition is allowed for this specific event (group).		  |
 //?=======================================================================================+
 
-// Condition validation, as in "is this allowed", happens at startup, therefore performance is not so critical.
+// Condition validation happens at startup, therefore performance is not so critical.
 
 // A "set", refers to a collection of conditions, with something in common. For example a set of process conditions
 //  contains conditions about a process, such as the path, pid, parent, etc.

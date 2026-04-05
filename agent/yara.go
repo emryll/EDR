@@ -16,6 +16,11 @@ import (
 	"golang.org/x/sys/windows"
 )
 
+//?=================================================================+
+//?   This file implements the YARA-X interface, and all memory     |
+//?   scanning functionality, excluding scheduling, and response.   |
+//?=================================================================+
+
 func LoadYaraRulesFromFolder(path string) (*yara.Rules, *yara.Scanner, error) {
 	var dir string
 	if path == "" {
@@ -227,6 +232,7 @@ func ScanMemoryRegions(hProcess windows.Handle, pid int, cRegions *C.MEMORY_REGI
 			processes[pid].PatternMatches[match.GetName()] = &match
 		}
 	}
+	C.free(cRegions)
 	return results, nil
 }
 
@@ -315,6 +321,7 @@ func ExecutableMemoryScan(pid uint32) (Result, error) {
 		return Result{}, fmt.Errorf("Failed to get executable memory regions of process %d: %v", pid, windows.GetLastError())
 	}
 	results, err := ScanMemoryRegions(hProcess, cRegions, numRegions)
+	C.free(cRegions)
 	if err != nil {
 		return Result{}, fmt.Errorf("Failed to scan memory regions: %v", err)
 	}
@@ -335,6 +342,7 @@ func MemoryScanEx(pid uint32) (Result, error) {
 		return Result{}, fmt.Errorf("Failed to get sections of process %d: %v", pid, windows.GetLastError())
 	}
 	results, err := ScanMemoryRegions(hProcess, cRegions, numRegions)
+	C.free(cRegions)
 	if err != nil {
 		return Result{}, fmt.Errorf("Failed to scan memory regions: %v", err)
 	}
@@ -354,6 +362,7 @@ func FullMemoryScan(pid uint32) (Result, error) {
 		return Result{}, fmt.Errorf("Failed to get memory regions of process %d: %v", pid, windows.GetLastError())
 	}
 	results, err := ScanMemoryRegions(hProcess, int(pid), cRegions, numRegions)
+	C.free(cRegions)
 	if err != nil {
 		return Result{}, fmt.Errorf("Failed to scan memory regions: %v", err)
 	}
@@ -373,7 +382,7 @@ func ScanUnbackedMemory(pid uint32) (Result, error) {
 		numRegions C.size_t
 		totalSize  C.size_t
 	)
-	cRegions := C.FindUnbackedExecutablePages(C.HANDLE(hProcess), &numRegions, &totalSize)
+	cRegions := C.GetUnbackedExecutablePages(C.HANDLE(hProcess), &numRegions, &totalSize)
 	if cRegions == nil || numRegions == 0 || totalSize == 0 {
 		return Result{}, nil
 	}
@@ -393,6 +402,7 @@ func ScanUnbackedMemory(pid uint32) (Result, error) {
 	}
 
 	results, err := ScanMemoryRegions(hProcess, int(pid), cRegions, numRegions)
+	C.free(cRegions)
 	if err != nil {
 		return Result{}, fmt.Errorf("Failed to scan memory regions: %v", err)
 	}

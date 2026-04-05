@@ -147,6 +147,7 @@ type ProtectFilter struct {
 	NewProtection    []uint32 `yaml:"new_protect"`
 	OldProtectionNot []uint32 `yaml:"old_protect_not"`
 	NewProtectionNot []uint32 `yaml:"new_protect_not"`
+	IsRemote         Bool     `yaml:"remote_op"`
 }
 
 // Condition set for object handles

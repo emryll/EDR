@@ -1,5 +1,10 @@
 package main
 
+//?======================================================================+
+//?   This file defines global constants and create enums for Bitmask.   |
+//?======================================================================+
+
+
 const (
 	//TODO: creation flags
 	//TODO: memory protection constants
@@ -92,7 +97,7 @@ const (
 
 	MAX_API_ARGS                = 10
 	API_ARG_MAX_SIZE            = 520
-	TM_HEADER_SIZE              = 24
+	TM_HEADER_SIZE              = 22
 	TM_MAX_DATA_SIZE            = 67624 - TM_HEADER_SIZE
 	FLAG_PRINT_INFO             = 1
 	FLAG_STATIC                 = 3

@@ -10,10 +10,15 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/Binject/debug/pe"
 	"github.com/fatih/color"
 )
+
+//?======================================================+
+//?   This file implements the static analysis engine.   |
+//?======================================================+
 
 // Perform static scan on a file, either by PID or filepath
 // Errors will be logged in the function, not returned. It is intended
@@ -333,6 +338,46 @@ func StaticScan[T int | string](target T, print bool) {
 		red.Log("very suspicious!\n")
 	}
 	printMu.Unlock()
+}
+
+// returns names of each pattern match and adds them to pattern match history of process
+func CheckStaticApiPatterns(imports map[string]bool) Result {
+	var matches Result
+Patterns:
+	for _, pattern := range apiPatterns {
+		var match bool
+		//* iterate each component of pattern
+		for _, call := range pattern.ApiCalls {
+			//* check each possible func for that component //TODO: use bitwise & and ids
+			for _, fn := range call {
+				if imports[fn] {
+					match = true
+					break
+				}
+			}
+			if !match { // if one of components is missing, pattern does not match
+				continue Patterns
+			}
+		}
+		matchResult := StdResult{
+			Name:        pattern.Name,
+			Description: pattern.Description,
+			TimeStamp:   time.Now().Unix(),
+			Severity:    pattern.Severity,
+			Score:       pattern.Score,
+			Category:    pattern.Category,
+		}
+		if matchResult.Name == "" { // make sure name has a value, to not mess up logic
+			if matchResult.Description != "" {
+				matchResult.Name = matchResult.Description
+			} else { // fallback, use first api as name
+				matchResult.Name = pattern.ApiCalls[0][0]
+			}
+		}
+		matches.TotalScore += matchResult.Score
+		matches.Results = append(matches.Results, matchResult)
+	}
+	return matches
 }
 
 func LookupFileHash(path string, authKey string) (HashLookup, error) {

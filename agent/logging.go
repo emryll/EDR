@@ -11,6 +11,11 @@ import (
 	"github.com/fatih/color"
 )
 
+//?======================================================================+
+//?  This file implements logging functionality. This includes both,     |
+//?    pretty printing, and logging to disk into a specified log file.   |
+//?======================================================================+
+
 func (r StdResult) Log() {
 	switch r.Severity {
 	case 0:
