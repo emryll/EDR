@@ -70,7 +70,7 @@ func ParseParameterString(header string, data []byte) (Parameter, error) {
 		param.Name = header[1:]
 	}
 
-	param.Type = uint8(GetParameterType(ptype, isArray))
+	param.Type = uint8(GetParameterType(ptype))
 
 	// remove possible null-terminator from first byte
 	if len(data) > 0 && data[0] == '\000' {
@@ -88,6 +88,48 @@ func ParseParameterString(header string, data []byte) (Parameter, error) {
 		}
 	}
 	return param, nil
+}
+
+// Print the provided parameters
+func PrintParameters(params map[string]Parameter) {
+	for _, param := range params {
+		fmt.Printf("\t%s: %v", param.Name, param.GetValue())
+	}
+}
+
+// Return the dynamic parameter as a regular Go value.
+// This method is generally used to print a value with "%v"
+// Array values are returned as a list of bullet points (i.e. string)
+func (p Parameter) GetValue() any {
+	switch p.Type {
+	case PARAMETER_ANSISTRING:
+		return ReadAnsiStringValue(p.Buffer)
+	case PARAMETER_ASTR_ARRAY:
+		return GetStringArrayFromBuffer(p.Buffer)
+	case PARAMETER_BOOLEAN:
+		return binary.LittleEndian.Uint32(p.Buffer) == 1
+	case PARAMETER_BOOLEAN_ARRAY:
+		return GetBooleanArrayFromBuffer(p.Buffer)
+	case PARAMETER_UINT32:
+		val := binary.LittleEndian.Uint32(p.Buffer)
+		if p.Domain == 0 {
+			return val
+		}
+		return InterpretBitmaskValue((Bitmask)(val), p.Domain)
+	case PARAMETER_UINT32_ARRAY:
+		return GetUint32ArrayFromBuffer(p.Buffer)
+	case PARAMETER_UINT64:
+		return binary.LittleEndian.Uint64(p.Buffer)
+	case PARAMETER_UINT64_ARRAY:
+		return GetUint64ArrayFromBuffer(p.Buffer)
+	case PARAMETER_POINTER:
+		return fmt.Sprintf("%p", binary.LittleEndian.Uint64(p.Buffer))
+	case PARAMETER_POINTER_ARRAY:
+		return GetPointerArrayFromBuffer(p.Buffer)
+	case PARAMETER_BYTES:
+		return p.Buffer
+	}
+	return "(invalid parameter)"
 }
 
 // Read the type of a (v4) parameter from the header string
@@ -119,26 +161,77 @@ func GetParameterType(ptype string) uint8 {
 	return 0
 }
 
-func PrintParameters(params map[string]Parameter) {
-	for _, param := range params {
-		fmt.Printf("\t%s: ", param.Name)
-		switch param.Type {
-		case PARAMETER_ANSISTRING:
-			fmt.Printf("%s\n", ReadAnsiString(param.Buffer))
-		case PARAMETER_UINT32:
-			fmt.Printf("%d\n", binary.LittleEndian.Uint32(param.Buffer))
-		case PARAMETER_BOOLEAN:
-			if binary.LittleEndian.Uint32(param.Buffer) == 0 {
-				fmt.Printf("FALSE\n")
-			} else {
-				fmt.Printf("TRUE\n")
-			}
-		case PARAMETER_POINTER:
-			fmt.Printf("0x%x\n", binary.LittleEndian.Uint64(param.Buffer))
-		default:
-			fmt.Printf("unknown type (%d)\n", param.Type)
+// Portrays the content of a C string array buffer
+// Used to portray the contents of a dynamic Parameter
+func GetStringArrayFromBuffer(buf []byte) string {
+	var builder strings.Builder
+	for i := 0; i < len(buf); {
+		str := ReadAnsiStringValue(buf[i:])
+		if len(str) == 0 {
+			break
 		}
-		//fmt.Println("[debug] parameter buffer dump:")
-		//DumpPacket(param.Buffer)
+		builder.WriteString("\n\t- ")
+		builder.WriteString(str)
+		i += len(str)
 	}
+	builder.WriteString("\n")
+	return builder.String()
+}
+
+// Portrays the content of a uint32 array buffer
+// Used to portray the contents of a dynamic Parameter
+func GetUint32ArrayFromBuffer(buf []byte) string {
+	var builder strings.Builder
+	for i := 0; i < len(buf); i += 4 {
+		val := binary.LittleEndian.Uint32(buf[i:])
+		builder.WriteString("\n\t- ")
+		builder.WriteString(strconv.FormatUint(uint64(val), 10))
+	}
+	builder.WriteString("\n")
+	return builder.String()
+}
+
+// Portrays the content of a uint64 array buffer
+// Used to portray the contents of a dynamic Parameter
+func GetUint64ArrayFromBuffer(buf []byte) string {
+	var builder strings.Builder
+	for i := 0; i < len(buf); i += 8 {
+		val := binary.LittleEndian.Uint64(buf[i:])
+		builder.WriteString("\n\t- ")
+		builder.WriteString(strconv.FormatUint(val, 10))
+	}
+	builder.WriteString("\n")
+	return builder.String()
+}
+
+// Portrays the content of a 64-bit pointer array buffer
+// Used to portray the contents of a dynamic Parameter
+func GetPointerArrayFromBuffer(buf []byte) string {
+	var builder strings.Builder
+	for i := 0; i < len(buf); i += 8 {
+		val := binary.LittleEndian.Uint64(buf[i:])
+		builder.WriteString("\n\t- ")
+		builder.WriteString("0x")
+		builder.WriteString(strconv.FormatUint(val, 16))
+	}
+	builder.WriteString("\n")
+	return builder.String()
+}
+
+// Portrays the content of a boolean array buffer
+// Used to portray the contents of a dynamic Parameter
+// This assumes 4 bytes are used for a boolean
+func GetBooleanArrayFromBuffer(buf []byte) string {
+	var builder strings.Builder
+	for i := 0; i < len(buf); i += 4 {
+		val := binary.LittleEndian.Uint32(buf[i:])
+		builder.WriteString("\n\t- ")
+		if val == 0 {
+			builder.WriteString("FALSE")
+		} else {
+			builder.WriteString("TRUE")
+		}
+	}
+	builder.WriteString("\n")
+	return builder.String()
 }

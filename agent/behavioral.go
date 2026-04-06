@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/binary"
 	"fmt"
 	"path/filepath"
 )
@@ -190,30 +189,6 @@ func (c HandleComponent) GetResult(p *Process) *ComponentResult {
 	//TODO: Get all handles of this process (same object type)
 	//TODO: Check conditions
 	return &result
-}
-
-// Return the dynamic parameter as a regular Go value.
-// This method is generally used to print a value with "%v"
-func (p Parameter) GetValue() any {
-	switch p.Type {
-	case PARAMETER_ANSISTRING:
-		return ReadAnsiStringValue(p.Buffer)
-	case PARAMETER_BOOLEAN:
-		return binary.LittleEndian.Uint32(p.Buffer) == 1
-	case PARAMETER_UINT32:
-		val := binary.LittleEndian.Uint32(p.Buffer)
-		if p.Domain == 0 {
-			return val
-		}
-		return InterpretBitmaskValue((Bitmask)(val), p.Domain)
-	case PARAMETER_UINT64:
-		return binary.LittleEndian.Uint64(p.Buffer)
-	case PARAMETER_POINTER:
-		return fmt.Sprintf("%p", binary.LittleEndian.Uint64(p.Buffer))
-	case PARAMETER_BYTES:
-		return p.Buffer
-	}
-	return "(invalid parameter)"
 }
 
 // Print the details of a pattern match.
