@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
@@ -15,44 +16,50 @@ import (
 //?   The main function to be called is CompileBehaviorPatterns(...)    |
 //?=====================================================================+
 
-// Custom boolean type for yaml.
-// Makes it so that default value is "not set" instead of false
-type Bool struct {
-	Value string `yaml:",inline"`
-}
-
-func (b Bool) IsSet() bool {
-	return b.Value != ""
-}
-
-func (b Bool) True() bool {
-	return strings.ToLower(b.Value) == "true"
-}
-
-// this tells yaml package how to parse Bool values
-func (b *Bool) UnmarshalYAML(node *yaml.Node) error {
-	if node.Kind != yaml.ScalarNode {
-		return fmt.Errorf("expected scalar, but node is %s", GetKind(node.Kind))
-	}
-	b.Value = node.Value
-	return nil
-}
-
-type Bitmask uint32 // custom type allowing for string enums in yaml
-
 // This is the outer function, which should be used to load behavior patterns.
 // It will first make sure each file follows valid syntax and doesn't break any rules.
 // After that it will go on to parse each pattern and add them to the global BehaviorPatterns
-func CompileBehaviorPatterns() error {
+func CompileBehaviorPatterns(paths ...string) {
+	var patternDirs []string
+	if len(paths) > 0 {
+		patternDirs = append(patternDirs, paths...)
+	}
+	patternDirs = append(patternDirs, DEFAULT_RULE_DIR)
 
+	visited := make(map[string]bool)
+	var patterns []BehaviorPattern
+	for _, dir := range patternDirs {
+		//* recursively walk directory to find and parse pattern files
+		err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if !IsPatternFile(path) || visited[path] {
+				return nil // skip
+			}
+			visited[path] = true
+			file, err := parsePatternFile(path)
+			if err != nil {
+				red.Log("Failed to parse %s: %v", path, err)
+				return nil
+			}
+			patterns = append(patterns, file...)
+			return nil
+		})
+		if err != nil {
+			red.Log("Failed to walk %s: %v\n", dir, err)
+		}
+	}
+	AddBehaviorPatterns(patterns)
+}
+
+func AddBehaviorPatterns(patterns []BehaviorPattern) {
+	//TODO: check for duplicates
+	white.Log("[i] Added %d patterns", len(patterns))
+	BehaviorPatterns = append(BehaviorPatterns, patterns...)
 }
 
 //func CheckFileSyntax()
-
-func loadBehaviorPatterns() {
-	//TODO: find all pattern files
-	//TODO: for each, read them, then call
-}
 
 func parsePatternFile(path string) ([]BehaviorPattern, error) {
 	yamlBytes, err := os.ReadFile(path)
@@ -75,9 +82,7 @@ func parsePatternFile(path string) ([]BehaviorPattern, error) {
 
 	doc := root.Content[0]
 	// Check if it's a sequence (array) or single mapping
-	if doc.Kind == yaml.SequenceNode {
-		// Array of patterns
-		fmt.Printf("Parsing %d patterns...\n", len(doc.Content))
+	if doc.Kind == yaml.SequenceNode { // list of patterns
 		for i, patternNode := range doc.Content {
 			pattern, err := parsePattern(patternNode)
 			if err != nil {
@@ -87,8 +92,7 @@ func parsePatternFile(path string) ([]BehaviorPattern, error) {
 			fmt.Printf("Successfully parsed pattern: %s\n", pattern.Name)
 			patterns = append(patterns, *pattern)
 		}
-	} else if doc.Kind == yaml.MappingNode {
-		// Single pattern
+	} else if doc.Kind == yaml.MappingNode { // single pattern
 		pattern, err := parsePattern(doc)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to parse pattern: %v\n", err)
@@ -96,12 +100,12 @@ func parsePatternFile(path string) ([]BehaviorPattern, error) {
 		fmt.Printf("Successfully parsed pattern: %s\n", pattern.Name)
 		patterns = append(patterns, *pattern)
 	} else {
-		return nil, fmt.Errorf("Expected sequence or mapping node")
+		return nil, fmt.Errorf("Expected sequence or mapping node (node is %s)", GetKind(doc.Kind))
 	}
 	return patterns, nil
 }
 
-// This function will parse a single pattern.
+// Parse the YAML of a single behavioral pattern. Return the Go representation
 func parsePattern(node *yaml.Node) (*BehaviorPattern, error) {
 	// Create the pattern struct
 	pattern := &BehaviorPattern{}
@@ -111,9 +115,6 @@ func parsePattern(node *yaml.Node) (*BehaviorPattern, error) {
 	if err := node.Decode(pattern); err != nil {
 		return nil, fmt.Errorf("failed to decode header: %w", err)
 	}
-
-	//TODO: parse bonus_attributes (mappingnode)
-	//TODO: implement tracking of captures
 
 	// Key-value pairs or collections of them (maps) are mapping nodes.
 	if node.Kind != yaml.MappingNode {
@@ -153,6 +154,7 @@ func parsePattern(node *yaml.Node) (*BehaviorPattern, error) {
 	return pattern, nil
 }
 
+// Parse the YAML representation of a component. Takes in the specific components node
 func parseComponent(node *yaml.Node) (Component, error) {
 	// Node is a MappingNode representing one component
 	var (
@@ -232,6 +234,14 @@ func parseComponent(node *yaml.Node) (Component, error) {
 		return nil, fmt.Errorf("invalid component type: \"%s\"", peek.Type)
 	}
 
+	//? Note that currently there is no proper validation for captures
+	capturesNode := findNodeInMapping("captures", node)
+	captures, err := parseCaptures(capturesNode)
+	if err != nil {
+		return nil, fmt.Errorf("invalid usage of capture in component %s: %v", comp.GetName(), err)
+	}
+	comp.SetCaptures(captures)
+
 	conditionsNode := findNodeInMapping("conditions", node)
 	conditions, err := parseConditions(conditionsNode, group)
 	if err != nil {
@@ -241,7 +251,7 @@ func parseComponent(node *yaml.Node) (Component, error) {
 	return comp, nil
 }
 
-// conditionMask is a bitmask telling which sets of conditions can be used.
+// Parse and return the conditions of a component. Takes in the "conditions" node
 func parseConditions(node *yaml.Node, group int) ([]Condition, error) {
 	//? Conditions are mapping nodes containing mapping nodes and sequence nodes
 	if node == nil {
@@ -256,6 +266,26 @@ func parseConditions(node *yaml.Node, group int) ([]Condition, error) {
 		conditions = append(conditions, set)
 	}
 	return conditions, nil
+}
+
+// Parse captures and return a map from them. Takes in the "captures" node
+func parseCaptures(node *yaml.Node) (map[string]string, error) {
+	if node == nil {
+		return nil, nil
+	}
+	captures := make(map[string]string)
+	if node.Kind != yaml.MappingNode {
+		return nil, fmt.Errorf("expected mapping node (node is %s)", GetKind(node.Kind))
+	}
+	for i := 0; i < len(node.Content); i += 2 {
+		keyNode := node.Content[i]     // name of variable, scalar
+		valueNode := node.Content[i+1] // value of variable, scalar
+		if keyNode.Kind != yaml.ScalarNode || valueNode.Kind != yaml.ScalarNode {
+			return nil, fmt.Errorf("expected scalar nodes")
+		}
+		captures[keyNode.Value] = valueNode.Value
+	}
+	return captures, nil
 }
 
 // Find a node of a specified key name, return that node.
@@ -277,6 +307,7 @@ func findNodeInMapping(key string, node *yaml.Node) *yaml.Node {
 	return newNode
 }
 
+// Method to read custom bitmask type. Allows string bitflag enums or raw value.
 func (b *Bitmask) UnmarshalYAML(node *yaml.Node) error {
 	var result Bitmask
 	switch node.Kind {
@@ -342,6 +373,7 @@ func BitmaskAsNumber(value string) Bitmask {
 	return (Bitmask)(val)
 }
 
+// Get the yaml.v3 node type as a string
 func GetKind(kind yaml.Kind) string {
 	switch kind {
 	case yaml.DocumentNode:
@@ -355,9 +387,10 @@ func GetKind(kind yaml.Kind) string {
 	case yaml.AliasNode:
 		return "AliasNode"
 	}
-	return ""
+	return "unknown"
 }
 
+// Validate that the timeline is valid for the pattern
 func (p *BehaviorPattern) ValidateTimeline() error {
 	// convert components to map for quicker lookup
 	components := make(map[string]Component)
@@ -413,6 +446,8 @@ func (p *BehaviorPattern) ValidateTimeline() error {
 	return nil
 }
 
+// Retrieves all the yaml condition fields of a set of conditions.
+// Used for validating condition usage in a behavioral pattern.
 func GetConditionFields(sets []Condition) (map[string]bool, error) {
 	allowed := make(map[string]bool)
 	for _, set := range sets {
@@ -457,3 +492,32 @@ func GetGroupConditionCatalog() (map[int]map[string]bool, error) {
 	}
 	return catalog, nil
 }
+
+func IsPatternFile(path string) bool {
+	return filepath.Ext(path) == PATTERN_FILE_EXTENSION
+}
+
+// Custom boolean type for yaml.
+// Makes it so that default value is "not set" instead of false
+type Bool struct {
+	Value string `yaml:",inline"`
+}
+
+func (b Bool) IsSet() bool {
+	return b.Value != ""
+}
+
+func (b Bool) True() bool {
+	return strings.ToLower(b.Value) == "true"
+}
+
+// this tells yaml package how to parse Bool values
+func (b *Bool) UnmarshalYAML(node *yaml.Node) error {
+	if node.Kind != yaml.ScalarNode {
+		return fmt.Errorf("expected scalar, but node is %s", GetKind(node.Kind))
+	}
+	b.Value = node.Value
+	return nil
+}
+
+type Bitmask uint32 // custom type allowing for string enums in yaml
