@@ -90,32 +90,31 @@ func ParseParameterString(header string, data []byte) (Parameter, error) {
 	return param, nil
 }
 
-func GetParameterType(ptype string, isArray bool) uint32 {
+// Read the type of a (v4) parameter from the header string
+func GetParameterType(ptype string) uint8 {
 	switch ptype[0] {
 	case 's':
-		return uint32(PARAMETER_ANSISTRING)
-	case 'x':
-		return uint32(PARAMETER_BYTES)
+		return uint8(PARAMETER_ANSISTRING)
+	case 'S':
+		return uint8(PARAMETER_ASTR_ARRAY)
 	case 'd':
-		if isArray {
-			return uint32(PARAMETER_UINT32_ARR)
-		}
-		return uint32(PARAMETER_UINT32)
+		return uint8(PARAMETER_UINT32)
+	case 'D':
+		return uint8(PARAMETER_UINT32_ARRAY)
 	case 'q':
-		if isArray {
-			return uint32(PARAMETER_UINT64_ARR)
-		}
-		return uint32(PARAMETER_UINT64)
+		return uint8(PARAMETER_UINT64)
+	case 'Q':
+		return uint8(PARAMETER_UINT64_ARRAY)
 	case 'p':
-		if isArray {
-			return uint32(PARAMETER_POINTER_ARR)
-		}
-		return uint32(PARAMETER_POINTER)
+		return uint8(PARAMETER_POINTER)
+	case 'P':
+		return uint8(PARAMETER_POINTER_ARRAY)
 	case 'b':
-		if isArray {
-			return uint32(PARAMETER_BOOLEAN_ARR)
-		}
-		return uint32(PARAMETER_BOOLEAN)
+		return uint8(PARAMETER_BOOLEAN)
+	case 'B':
+		return uint8(PARAMETER_BOOLEAN_ARRAY)
+	case 'x':
+		return uint8(PARAMETER_BYTES)
 	}
 	return 0
 }
