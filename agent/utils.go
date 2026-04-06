@@ -164,7 +164,7 @@ ArgLoop:
 }
 
 // interpret raw c ansi string as a go string
-func ReadAnsiStringValue(data []byte) string {
+func ReadAnsiString(data []byte) string {
 	n := 0
 	for ; n < len(data); n++ {
 		if data[n] == 0 {
@@ -175,7 +175,7 @@ func ReadAnsiStringValue(data []byte) string {
 }
 
 // interpret raw c wide string as a go string
-func ReadWideStringValue(data []byte) string {
+func ReadWideString(data []byte) string {
 	u16s := make([]uint16, 0, len(data)/2)
 
 	for i := 0; i < len(data); i += 2 {

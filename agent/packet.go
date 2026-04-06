@@ -24,7 +24,7 @@ func ParseParameters(data []byte) []Parameter {
 		cursor += len(parameter) + 1 // +1 because null-terminator occupies one byte after
 
 		// -1 so you wont get out of bounds error, but prevent off-by-one error.
-		param, err := ParseParameterString(parameter, data[cursor-1:])
+		param, err := ParseSingleParameter(parameter, data[cursor-1:])
 		if err != nil || param.Buffer == nil {
 			if err != nil {
 				color.Red("\n[!] Failed to parse parameter: %v", err)
@@ -40,8 +40,7 @@ func ParseParameters(data []byte) []Parameter {
 	return params
 }
 
-// takes in the current parameters header, and the entire buffer after it
-func ParseParameterString(header string, data []byte) (Parameter, error) {
+func ParseSingleParameter(header string, data []byte) (Parameter, error) {
 	var (
 		param   Parameter
 		isArray = false
@@ -166,7 +165,7 @@ func GetParameterType(ptype string) uint8 {
 func GetStringArrayFromBuffer(buf []byte) string {
 	var builder strings.Builder
 	for i := 0; i < len(buf); {
-		str := ReadAnsiStringValue(buf[i:])
+		str := ReadAnsiString(buf[i:])
 		if len(str) == 0 {
 			break
 		}
