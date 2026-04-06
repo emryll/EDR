@@ -57,3 +57,8 @@ func LoadConfig() Config {
 }
 
 //TODO: LoadEnums()
+
+func IsAllowedUnbackedExecution(pid uint32) bool {
+	//TODO: check allowlist
+	return false
+}

@@ -13,6 +13,7 @@ import (
 
 	yara "github.com/VirusTotal/yara-x/go"
 	"github.com/fatih/color"
+	"golang.org/x/sys/windows"
 )
 
 //? If you're wondering why some comments in the codebase start with a symbol like this one;
@@ -157,7 +158,35 @@ func PeriodicScanHandler(wg *sync.WaitGroup, priorityTasks chan Scan, tasks chan
 					priorityTasks <- Scan{Pid: scan.Pid, Type: SCAN_MEMORYSCAN_FULL}
 				}
 
-				//TODO: case SCAN_UNBACKED_CODE:
+			case SCAN_UNBACKED_CODE:
+				var (
+					count     C.size_t
+					totalSize C.size_t
+				)
+				hProcess, err := windows.OpenProcess(windows.PROCESS_QUERY_INFORMATION, false, uint32(scan.Pid))
+				if err != nil {
+					red.Log("[!] Failed to open handle to process %d", err)
+					white.Log("\tError: %v", err)
+					continue
+				}
+				defer windows.CloseHandle(hProcess)
+				cRegions := C.GetUnbackedExecutablePages(C.HANDLE(hProcess), &count, &totalSize)
+				defer C.free(cRegions)
+				if totalSize < UNBACKED_CODE_THRESHOLD {
+					continue
+				}
+				// check if this process is allowed to have this
+				if IsAllowedUnbackedExecution(scan.Pid) {
+					continue
+				}
+
+				//* send alert
+				msg := fmt.Sprintf("Process %d has %d unbacked executable regions (%dB)", scan.Pid, count, totalSize)
+				alert := CreateAlert(ALERT_UNBACKED_CODE, "", msg, UNBACKED_CODE_SCORE, scan.Pid)
+				alert.PushAlert(true)
+
+				//* scan all the regions
+				go ScanMemoryRegions(hProcess, scan.Pid, cRegions, count)
 			}
 		}
 	}
@@ -196,13 +225,15 @@ func main() {
 		return
 	}
 
+	// simple malapi list used for trivial static analysis
 	malapi, err = LoadMaliciousApiListFromDisk("")
 	if err != nil {
 		red.Log("\n[!] Failed to load malicious API list!")
 		white.Log("\tError: %v\n", err)
 	}
 
-	//TODO: load v3 patterns
+	//TODO: add cl flag option to specify dirs
+	CompileBehaviorPatterns()
 
 	// setup for static engine for reading magic bytes
 	SortMagic()
