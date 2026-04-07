@@ -1,14 +1,29 @@
 package main
 
+import (
+	"fmt"
+	"os"
+
+	yaml "gopkg.in/yaml.v3"
+)
+
 //?=================================================================================+
 //?  This file is responsible for defining and loading the system configuration.    |
 //?=================================================================================+
 
 type Config struct {
 	Agent AgentConfig
-	//	Dll DllConfig
-	//	Etw EtwConfig
+	Dll   DllConfig
+	Etw   EtwConfig
 }
+
+type BehaviorRules struct {
+	Whitelist BehaviorWhitelist
+	Blacklist BehaviorBlacklist
+}
+
+// used for yaml parsing straight into map
+type AllowDenyRule map[string]bool
 
 type AgentConfig struct {
 	UseDriver          bool   `yaml:"use_driver"`
@@ -31,7 +46,7 @@ type AgentConfig struct {
 	MalapiPath string `yaml:"malapi_path"`
 
 	TotalScoreAlert  int `yaml:"total_score_alert_threshold"`
-	TotalScoreFinal  int `yaml:"total_score_alert_threshold"`
+	TotalScoreFinal  int `yaml:"total_score_final_threshold"`
 	StaticScoreAlert int `yaml:"static_score_alert_threshold"`
 	StaticScoreFinal int `yaml:"static_score_final_threshold"`
 	RansomScoreAlert int `yaml:"ransom_score_alert_threshold"`
@@ -45,20 +60,86 @@ type AgentConfig struct {
 	HeartbeatMaxDelay   int `yaml:"max_heartbeat_delay"`
 }
 
-func LoadConfig() Config {
+type EtwConfig struct {
+	LightweightMode   bool `yaml:"lightweight_mode"`
+	HeartbeatInterval int  `yaml:"heartbeat_interval"`
+}
+
+type DllConfig struct {
+	HeartbeatInterval int `yaml:"heartbeat_interval"`
+}
+
+type BehaviorWhitelist struct {
+	NoTracking        AllowDenyRule `yaml:"no_tracking"`
+	RwxMemory         AllowDenyRule `yaml:"rwx_memory"`
+	DllInjection      AllowDenyRule `yaml:"dll_injection"`
+	ParentSpoofing    AllowDenyRule `yaml:"parent_spoofing"`
+	RemoteExecution   AllowDenyRule `yaml:"remote_execution"`
+	UnbackedExecution AllowDenyRule `yaml:"unbacked_execution"`
+}
+
+type BehaviorBlacklist struct {
+	InternetDownloads AllowDenyRule `yaml:"internet_download"`
+	FileCreation      AllowDenyRule `yaml:"file_creation"`
+}
+
+func LoadConfig(path string) (Config, error) {
 	var config Config
-	//TODO: find agent config
-	//TODO: read agent config
-	//TODO: find dll config
-	//TODO: read dll config
-	//TODO: find etw config
-	//TODO: read etw config
-	return config
+	bytes, err := os.ReadFile(path)
+	if err != nil {
+		return Config{}, err
+	}
+
+	err = yaml.Unmarshal(bytes, &config)
+	if err != nil {
+		return Config{}, err
+	}
+	return config, nil
 }
 
 //TODO: LoadEnums()
 
-func IsAllowedUnbackedExecution(pid uint32) bool {
-	//TODO: check allowlist
+func LoadAllowDenyLists(whitelistPath string, blacklistPath string) (BehaviorRules, error) {
+	whitelistBytes, err := os.ReadFile(whitelistPath)
+	if err != nil {
+		return BehaviorRules{}, fmt.Errorf("failed to read file: %v", err)
+	}
+	blacklistBytes, err := os.ReadFile(blacklistPath)
+	if err != nil {
+		return BehaviorRules{}, fmt.Errorf("failed to read file: %v", err)
+	}
+
+	var rules BehaviorRules
+	err = yaml.Unmarshal(whitelistBytes, &rules.Whitelist)
+	if err != nil {
+		return BehaviorRules{}, fmt.Errorf("failed to unmarshal whitelist: %v", err)
+	}
+	err = yaml.Unmarshal(blacklistBytes, &rules.Blacklist)
+	if err != nil {
+		return BehaviorRules{}, fmt.Errorf("failed to unmarshal blacklist: %v", err)
+	}
+	return rules, nil
+}
+
+func (r *BehaviorRules) IsAllowedUnbackedExecution(pid uint32) bool {
+	path, err := GetProcessExecutable(pid)
+	if err == nil && r.Whitelist.UnbackedExecution[path] {
+		return true
+	}
 	return false
+}
+
+func (r *AllowDenyRule) UnmarshalYAML(value *yaml.Node) error {
+	var list []string
+	if err := value.Decode(&list); err != nil {
+		return err
+	}
+
+	m := make(map[string]bool, len(list))
+	for _, v := range list {
+		m[v] = true
+	}
+
+	*r = m
+	return nil
 }
