@@ -13,6 +13,7 @@ Permission is hereby granted, free of charge, to any person obtaining a copy of 
 Use, copy, modify, and distribute the Software for non-commercial purposes only
 Use the Software for personal projects, academic research, and educational activities
 Share modifications and improvements with the community under the same license
+
 3. Non-Commercial Restriction
 
 The Software may NOT be used, in whole or in part, for any commercial purpose.
