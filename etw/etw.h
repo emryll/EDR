@@ -16,6 +16,26 @@ extern TRACEHANDLE SessionHandle;
 extern TRACEHANDLE traceHandle;
 extern EVENT_TRACE_PROPERTIES* SessionProperties;
 
+typedef struct {
+    LPVOID packet;
+    size_t size;
+} QUEUE_ENTRY;
+
+typedef struct {
+    volatile ULONG64 head;   // producer index (writes)
+    volatile ULONG64 tail;   // consumer index (reads)
+    const size_t capacity;   // max entries
+    HANDLE       event;      // event to indicate new packet
+    QUEUE_ENTRY* queue;
+} TELEMETRY_QUEUE;
+
+void InitQueue(TELEMETRY_QUEUE*, const size_t);
+void DestroyQueue(TELEMETRY_QUEUE*);
+BOOL QueueIsEmpty(TELEMETRY_QUEUE*);
+BOOL QueueIsFull(TELEMETRY_QUEUE*);
+int EnqueuePacket(TELEMETRY_QUEUE*, BYTE*, size_t);
+int DequeuePacket(TELEMETRY_QUEUE*, HANDLE, int);
+void QueueWorker(HANDLE);
 
 typedef enum {
     TM_TYPE_ETW_FILE = 2,
