@@ -6,9 +6,6 @@
 //?  This file implements a ring buffer queue for telemetry events.        |
 //?  It is a single producer - single consumer queue with batched sending. |
 //?------------------------------------------------------------------------|
-//?  The queue allocates space for n+1 items, using the extra slot to      |
-//?   distinguish empty queue from a full one, while not using any locks.  |
-//?------------------------------------------------------------------------|
 //?     This queue is not safe to use concurrently!!                       | 
 //?========================================================================+
 
@@ -18,12 +15,14 @@
 
 // This function will take a single queue and initialize it for use.
 // This will not create a worker thread to process queue items.
-void InitQueue(TELEMETRY_QUEUE* queue, const size_t size) {
+int InitQueue(TELEMETRY_QUEUE* queue, const size_t size) {
 	queue->tail  = 0;
 	queue->head  = 0;
 	queue->capacity = size;
 	queue->queue = malloc(queue->capacity * sizeof(QUEUE_ENTRY));
-    queue->event = CreateEventA(NULL, TRUE, FALSE, NULL)
+    queue->event = CreateEventA(NULL, TRUE, FALSE, NULL);
+    if (queue->queue == NULL || queue->event == NULL) return ERROR_INVALID_QUEUE;
+    return SUCCESS;
 }
 
 // This function will uninitialize a single queue. Should only ever be called at cleanup.
@@ -50,7 +49,8 @@ BOOL QueueIsFull(TELEMETRY_QUEUE* queue) {
 // @param  size     The size of the provided packet buffer.
 // @return          Return value is 0 if successful, otherwise value is the error code.
 int EnqueuePacket(TELEMETRY_QUEUE* queue, BYTE* packet, size_t size) {
-    if (queue == NULL || queue->capacity == 0) return ERROR_INVALID_QUEUE;
+    if (queue == NULL || queue->queue == NULL
+        || queue->capacity == 0) return ERROR_INVALID_QUEUE;
     if (QueueIsFull(queue)) return ERROR_FULL_QUEUE;
 
     ULONG64 index = queue->head % queue->capacity;
@@ -70,7 +70,8 @@ int EnqueuePacket(TELEMETRY_QUEUE* queue, BYTE* packet, size_t size) {
 // @param  retries  How many times to attempt sending packet, before returning error.
 // @return          Return value is 0 if successful, otherwise value is the error code.
 int DequeuePacket(TELEMETRY_QUEUE* queue, HANDLE hPipe, int retries) {
-    if (queue == NULL || queue->capacity == 0) return ERROR_INVALID_QUEUE;
+    if (queue == NULL || queue->queue == NULL
+        || queue->capacity == 0) return ERROR_INVALID_QUEUE;
     if (QueueIsEmpty(queue)) return ERROR_EMPTY_QUEUE;
 
     ULONG64 index = queue->tail % queue->capacity;
@@ -90,7 +91,7 @@ int DequeuePacket(TELEMETRY_QUEUE* queue, HANDLE hPipe, int retries) {
 
 // This is a worker routine for a queue consumer
 void QueueWorker(HANDLE hPipe) {
-    HANDLE events[2] = {g_StandardQueue, g_CriticalQueue};
+    HANDLE events[2] = {g_StandardQueue.event, g_CriticalQueue.event};
     while(1) {
         WaitForMultipleObjects(2, events, FALSE, INFINITE);
         //? This is where batched sending would be implemented

@@ -29,6 +29,11 @@ typedef struct {
     QUEUE_ENTRY* queue;
 } TELEMETRY_QUEUE;
 
+// for critical queue, if enqueue fails it will be sent directly.
+// for standard queue, if enqueue fails it will be abandoned.
+extern TELEMETRY_QUEUE g_CriticalQueue;
+extern TELEMETRY_QUEUE g_StandardQueue;
+
 void InitQueue(TELEMETRY_QUEUE*, const size_t);
 void DestroyQueue(TELEMETRY_QUEUE*);
 BOOL QueueIsEmpty(TELEMETRY_QUEUE*);
@@ -36,6 +41,14 @@ BOOL QueueIsFull(TELEMETRY_QUEUE*);
 int EnqueuePacket(TELEMETRY_QUEUE*, BYTE*, size_t);
 int DequeuePacket(TELEMETRY_QUEUE*, HANDLE, int);
 void QueueWorker(HANDLE);
+
+typedef enum {
+    SUCCESS,
+    ERROR_INVALID_QUEUE,
+    ERROR_FULL_QUEUE,
+    ERROR_EMPTY_QUEUE,
+    ERROR_FAILED_WRITE,
+} ERROR_CODE;
 
 typedef enum {
     TM_TYPE_ETW_FILE = 2,
