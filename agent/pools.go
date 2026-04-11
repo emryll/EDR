@@ -182,3 +182,37 @@ func (reg *ObjectAccessRegistry) AddEntry(entry AccessEntry, pid uint32) {
 	reg.ProcessLookup[pid][entry.Object][entry.Name] = append(reg.ProcessLookup[pid][entry.Object][entry.Name], &e)
 	reg.ObjectLookup[entry.Object][entry.Name][pid] = append(reg.ObjectLookup[entry.Object][entry.Name][pid], &e)
 }
+
+//TODO: remove process entries
+// Delete all interaction entries under a certain process.
+// This function should be called when a process exits, to cleanup.
+func (reg *ObjectAccessRegistry) RemoveEntriesByProcess(pid uint32) {
+	reg.mu.Lock()
+	defer r.mu.Unlock()
+	// check that map entries exist
+	if objTypeMap, exists := reg.ProcessLookup[pid]; !exists {
+		return
+	}
+
+	// remove entries
+	for objType, nameMap := range objTypeMap {
+		for name := range nameMap {
+			if pidMap, exists := reg.ObjectLookup[objType][name]; !exists {
+				continue
+			}
+
+			delete(pidMap, pid)
+			if len(pidMap) == 0 {
+				delete(reg.ObjectLookup[objType], name)
+			}
+		}
+		if len(reg.ObjectLookup[objType]) == 0 {
+			delete(reg.ObjectLookup, objType)
+		}
+	}
+
+	delete(reg.ProcessLookup, pid)
+}
+
+//TODO: FindObject (find specific kind of object by any process)
+//TODO: FindEntry (find specific entry)
