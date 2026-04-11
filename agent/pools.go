@@ -147,3 +147,38 @@ type ObjectAccessRegistry struct {
 	// object type -> name -> process -> entry 
 	ObjectLookup map[uint32]map[string]map[uint32][]*AccessEntry
 }
+
+// Add an interaction to the registry. Updates existing if one exists.
+func (reg *ObjectAccessRegistry) AddEntry(entry AccessEntry, pid uint32) {
+	reg.mu.Lock()
+	defer reg.mu.Unlock()
+	// check that maps are initialized (avoid panic)
+	if reg.ProcessLookup[pid] == nil {
+		reg.ProcessLookup[pid] = make(map[uint32]map[string][]*AccessEntry)
+	}
+	if reg.ProcessLookup[pid][entry.Object] == nil {
+		reg.ProcessLookup[pid][entry.Object] = make(map[string][]*AccessEntry)
+	}
+	if reg.ObjectLookup[entry.Object] == nil {
+		reg.ObjectLookup[entry.Object] = make(map[uint32]map[string][]*AccessEntry)
+	}
+	if reg.ObjectLookup[entry.Object][entry.Name] == nil {
+		reg.ObjectLookup[entry.Object][entry.Name] = make(map[uint32][]*AccessEntry)
+	}
+	
+	// check if entry exists, update existing if does
+	entries := FindEntry(pid, entry.Object, entry.Name)
+	if len(entries) > 0 {
+		for _, ent := range entries {
+			if ent.Handle != entry.Handle {
+				continue
+			}
+			ent.Type |= entry.Type
+			return
+		}
+	}
+
+	e := entry // just to be safe with uniqueness...
+	reg.ProcessLookup[pid][entry.Object][entry.Name] = append(reg.ProcessLookup[pid][entry.Object][entry.Name], &e)
+	reg.ObjectLookup[entry.Object][entry.Name][pid] = append(reg.ObjectLookup[entry.Object][entry.Name][pid], &e)
+}
