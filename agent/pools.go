@@ -216,3 +216,58 @@ func (reg *ObjectAccessRegistry) RemoveEntriesByProcess(pid uint32) {
 
 //TODO: FindObject (find specific kind of object by any process)
 //TODO: FindEntry (find specific entry)
+
+func (reg *ObjectAccessRegistry) FindByProcess() []*AccessEntry {
+
+}
+
+func (reg *ObjectAccessRegistry) FindByObject() []*AccessEntry {
+	// object type is mandatory
+	// specifying object names is optional
+	// specifying interaction is optional (0 for any)
+
+	if len(reg.ObjectLookup[objectType]) {
+		return nil
+	}
+	
+	nameFilter := make(map[string]bool)
+	for _, n := range names {
+		nameFilter[n] = true
+	}
+	
+	var result []*AccessEntry
+	for name, entries := range reg.ObjectLookup[objectType] {
+		if len(names) > 0 && !nameFilter[name] {
+			continue
+		}
+		objs := getObjectsWithFilter(entries, interaction)
+		if objs != nil && len(objs) > 0 {
+			result = append(result, objs...)
+		} 
+	}
+	return result
+}
+
+func getObjectsWithFilter(entries map[uint32][]*AccessMask, interaction Bitmask, pids ...uint32) []*AccessMask {
+	var result []*AccessMask
+	pidFilter := make(map[uint32]bool)
+	for _, p := range pids {
+		pidFilter[p] = true
+	}
+	
+	for pid, objs := range entries {
+		if len(pids) > 0 && !pidFilter[pid] {
+			continue
+		}
+		
+		if interaction == 0 {
+			result = append(result, objs...)
+		}
+		
+		for _,  entry = range objs {
+			if entry.Type.HasFlags(interaction) {
+				result = append(result, entry)
+			} 
+		}
+	}
+}
