@@ -183,7 +183,6 @@ func (reg *ObjectAccessRegistry) AddEntry(entry AccessEntry, pid uint32) {
 	reg.ObjectLookup[entry.Object][entry.Name][pid] = append(reg.ObjectLookup[entry.Object][entry.Name][pid], &e)
 }
 
-//TODO: remove process entries
 // Delete all interaction entries under a certain process.
 // This function should be called when a process exits, to cleanup.
 func (reg *ObjectAccessRegistry) RemoveEntriesByProcess(pid uint32) {
@@ -214,11 +213,46 @@ func (reg *ObjectAccessRegistry) RemoveEntriesByProcess(pid uint32) {
 	delete(reg.ProcessLookup, pid)
 }
 
-//TODO: FindObject (find specific kind of object by any process)
-//TODO: FindEntry (find specific entry)
+func (reg *ObjectAccessRegistry) FindByProcess(pids ...uint32, objs ...uint32, names ...uint32) []*AccessEntry {
+	reg.mu.RLock()
+	defer reg.mu.RUnlock()
+	if len(pids) == 0 {
+		return nil
+	}
 
-func (reg *ObjectAccessRegistry) FindByProcess() []*AccessEntry {
+	var (
+		entries []*AccessEntry
+		typeFilter = make(map[uint32]bool)
+		nameFilter = make(map[string]bool)
+		pidFilter = make(map[uint32]bool)
+	)
 
+	for _, val := range pids {
+		pidFilter[val] = true
+	}
+	for _, val := range objs {
+		typeFilter[val] = true
+	}
+	for _, val := range names {
+		nameFilter[val] = true
+	}
+
+	for pid, objMap := range reg.ProcessLookup {
+		if !pidFilter[pid] {
+			continue
+		}
+		for objType, namesMap := range objMap {
+			if len(objs) > 0 && !typeFilter[objType] {
+				continue
+			}
+			for name, accessEntries := range namesMap {
+				if len(names) == 0 || namesFilter[name] {
+					entries = append(entries, accessEntries...)
+				}
+			}
+		}
+	}
+	return entries
 }
 
 // Find all corresponding entries based on object description.
@@ -230,6 +264,8 @@ func (reg *ObjectAccessRegistry) FindByObject(objectType Bitmask, interaction Bi
 	// object type is mandatory
 	// specifying object names is optional
 	// specifying interaction is optional (0 for any)
+
+	//TODO: mutex
 
 	if len(reg.ObjectLookup[objectType]) {
 		return nil
