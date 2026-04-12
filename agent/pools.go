@@ -221,7 +221,12 @@ func (reg *ObjectAccessRegistry) FindByProcess() []*AccessEntry {
 
 }
 
-func (reg *ObjectAccessRegistry) FindByObject() []*AccessEntry {
+// Find all corresponding entries based on object description.
+// @param  objectType    The type of object to be accessed.
+// @param  interaction   (optional) Bitmask describing type of interaction.
+// @param  names         (optional) Whitelist for object names.
+// @return               All matching object access entries.
+func (reg *ObjectAccessRegistry) FindByObject(objectType Bitmask, interaction Bitmask, names ...string) []*AccessEntry {
 	// object type is mandatory
 	// specifying object names is optional
 	// specifying interaction is optional (0 for any)
@@ -248,6 +253,10 @@ func (reg *ObjectAccessRegistry) FindByObject() []*AccessEntry {
 	return result
 }
 
+// Internal helper function for finding object access entries.
+// @param  entries		 
+// @param  interaction   (optional) Bitmask describing type of interaction.
+// @param  pids...       (optional) Whitelist for object access entry pid.
 func getObjectsWithFilter(entries map[uint32][]*AccessMask, interaction Bitmask, pids ...uint32) []*AccessMask {
 	var result []*AccessMask
 	pidFilter := make(map[uint32]bool)
