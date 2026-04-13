@@ -59,7 +59,7 @@ func RefreshPools() []*Pool {}
 
 // add new connection or add on top of existing
 // weight is incremented by the specified amount
-func (p *Pool) AddConnection(flags Bitmask, weight int, node1 uint32, node2 uint32) {
+func (g *Graph) AddConnection(flags Bitmask, weight int, node1 uint32, node2 uint32) {
 	//TODO: this should take into account the merging of pools
 	if processes[int(node1)].SoftPool != processes[int(node2)].SoftPool {
 		p.Merge() //TODO: untracked processes are the problem? what to do with them?
@@ -87,7 +87,7 @@ func (p *Pool) AddConnection(flags Bitmask, weight int, node1 uint32, node2 uint
 
 // remove weight or type from connection
 // if the connection doesnt exist, or they dont have the flags, no-op
-func (p *Pool) StripConnection(flags Bitmask, weight int, node1 uint32, node2 uint32) {
+func (g *Graph) StripConnection(flags Bitmask, weight int, node1 uint32, node2 uint32) {
 	if p.Connections[node1] != nil {
 		if _, exists := p.Connections[node1][node2]; exists {
 			conn := p.Connections[node1][node2]
@@ -115,7 +115,7 @@ func (p *Pool) StripConnection(flags Bitmask, weight int, node1 uint32, node2 ui
 }
 
 // no-op if connection does not exist
-func (p *Pool) RemoveConnection(node1 uint32, node2 uint32) {
+func (g *Graph) RemoveConnection(node1 uint32, node2 uint32) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -128,6 +128,22 @@ func (p *Pool) RemoveConnection(node1 uint32, node2 uint32) {
 	//TODO: should you also check if each node's pool changed?
 }
 
+// Merge another graph into this graph.
+// This will delete the other graph with merge.
+// This method should be used on the larger graph.
+func (g *Graph) Merge(other *Graph, reg *GraphRegistry) {
+	g.mu.Lock()
+	other.mu.Lock()
+	defer g.mu.Unlock()
+	defer other.mu.Unlock()
+	for pid, node := range other.Members {
+		g.Members[pid] = node
+		//TODO: update process structure pointer to graph
+	}
+	if reg != nil {
+		reg.Remove(other)
+	}
+}
 
 //*===================[ Object Access Lookup ]==========================
 
