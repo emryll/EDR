@@ -7,23 +7,24 @@ import (
 //  this file is for the experimental process pool idea, for multi-process correlation
 //  it is going to be fully implemented in later versions but already basing some stuff on the skeleton
 
-// Represents a group of processes with some sort of connection.
-/*type Pool struct {
-	mu          sync.RWMutex
-	Connections map[uint32]map[uint32]Connection // node(pid) -> next(pid)
-	//TODO: add merged telemetry storage access
+// A pool is a subset of a graph,
+// based on a read-only snapshot
+type Pool map[uint32]*ProcessNode
+
+type Graph struct {
+	mu sync.RWMutex
+	Members map[uint32]*ProcessNode
 }
-*/
-type Pool struct {
-	mu          sync.RWMutex
-	Members map[uint32]*Process // connections in process struct
-	Untracked map[uint32]map[uint32] // node(pid) -> next(pid)
-	//TODO: add merged telemetry storage access
+
+type ProcessNode struct {
+	Process     *Process
+	Connections map[uint32]*Connection
 }
-// Connections are stored in a map in Process structure
+
 type Connection struct {
+	Target *ProcessNode
+	Weight uint8
 	Type   Bitmask
-	Weight int
 }
 
 /*
@@ -143,9 +144,25 @@ type AccessEntry struct {
 type ObjectAccessRegistry struct {
 	mu sync.RWMutex // used internally in methods
 	// process -> object type -> name -> entry
-	ProcessLookup map[uint32]map[uint32]map[string][]*AccessEntry // array is for anon objects
+	ProcessLookup map[uint32]map[ProcessAccessKey][]*AccessEntry // array is for anon objects
 	// object type -> name -> process -> entry 
-	ObjectLookup map[uint32]map[string]map[uint32][]*AccessEntry
+	ObjectLookup map[uint32]map[ObjectAccessKey][]*AccessEntry
+}
+// With the triple nested map, amount of maps grows very quickly.
+// To fix this issue, the structure is partially flattened.
+// Instead of a triple map its a double map with a struct key,
+// which has a very big effect on the amount of maps created.
+
+// This key struct is made to flatten ProcessLookup
+type ProcessAccessKey struct {
+	ObjType uint32
+	Name    string
+}
+
+// This key struct is made to flatten ObjectLookup
+type ObjectAccessKey struct {
+	Pid uint32
+	Name string
 }
 
 // Add an interaction to the registry. Updates existing if one exists.
@@ -316,3 +333,6 @@ func getObjectsWithFilter(entries map[uint32][]*AccessMask, interaction Bitmask,
 		}
 	}
 }
+
+//TODO: RegisterInteraction(...) wrapper to add to registry + graph
+
