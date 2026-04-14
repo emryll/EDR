@@ -27,32 +27,13 @@ type Connection struct {
 	Type   Bitmask
 }
 
-/*
-* Pool connections should not be directly tied to Process struct,
-* this way it also allows processes which are not tracked.
-*
-* However, it would be good to have a node based structure,
-* so that you could just "rebuild" all soft pools for merging.
-*
-* Connecting two pools is a problem!
- */
-
-/*
-* To rebuild pools, iterate processes
-*/
-
 
 //TODO: todo add a way to figure out which soft pool a given process is in
 
 //TODO: should probably create a function create the base pools from process list
 
-/*func CreatePool(processes ...*Process) Pool {
-	var pool Pool
-	for _, process := range processes {
-		pool[]
-	}
-	return pool
-}*/
+//TODO: BuildInteractionGraph()
+
 
 var PoolRegistry []*Pool // should there be an id?
 func RefreshPools() []*Pool {}
@@ -61,28 +42,28 @@ func RefreshPools() []*Pool {}
 // weight is incremented by the specified amount
 func (g *Graph) AddConnection(flags Bitmask, weight int, node1 uint32, node2 uint32) {
 	//TODO: this should take into account the merging of pools
-	if processes[int(node1)].SoftPool != processes[int(node2)].SoftPool {
-		p.Merge() //TODO: untracked processes are the problem? what to do with them?
+	if GetProcessGraph(node1) != GetProcessGraph(node2) {
+		g.Merge() //TODO: untracked processes are a problem? what to do with them?
 	}
 
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	if p.Connections[node1] == nil {
-		p.Connections[node1] = make(map[uint32]Connection)
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if g.Connections[node1] == nil {
+		g.Connections[node1] = make(map[uint32]Connection)
 	}
-	if p.Connections[node2] == nil {
-		p.Connections[node2] = make(map[uint32]Connection)
+	if g.Connections[node2] == nil {
+		g.Connections[node2] = make(map[uint32]Connection)
 	}
-	conn_k := p.Connections[node1][node2]
-	conn_n := p.Connections[node2][node1]
+	conn_k := g.Connections[node1][node2]
+	conn_n := g.Connections[node2][node1]
 	// alter edges
 	conn_k.Weight += weight
 	conn_n.Weight += weight
 	conn_k.Type |= flags
 	conn_k.Type |= flags
 	// add connection
-	p.Connections[node1][node2] = conn_k
-	p.Connections[node2][node1] = conn_n
+	g.Connections[node1][node2] = conn_k
+	g.Connections[node2][node1] = conn_n
 }
 
 // remove weight or type from connection
@@ -143,6 +124,17 @@ func (g *Graph) Merge(other *Graph, reg *GraphRegistry) {
 	if reg != nil {
 		reg.Remove(other)
 	}
+}
+
+type Traversal struct {
+	Weight int
+	Filter Bitmask
+}
+
+// Returns a set of subgraphs constructed with a traversal rule.
+// The filter determines which connections count as an edge.
+func (g *Graph) CreatePools(filter Traversal) []Pool {
+	//TODO: traverse graph with given rules
 }
 
 //*===================[ Object Access Lookup ]==========================
@@ -350,5 +342,19 @@ func getObjectsWithFilter(entries map[uint32][]*AccessMask, interaction Bitmask,
 	}
 }
 
-//TODO: RegisterInteraction(...) wrapper to add to registry + graph
+// Register a tracked interaction to the registry and graph.
+// Before running this you should check that the interaction
+// is something used in the relationship graphing.
+func (entry *AccessEntry) RegisterInteraction(pid uint32) {
+	g_ObjectAccessRegistry.AddEntry(entry, pid)
 
+	connections := entry.GetNewConnections(pid)
+	if len(connections) == 0 {
+		return
+	}
+
+	graph := GetGraph(pid)
+	for _, newConn := range connections {
+		graph.AddConnection(entry.Type, pid, newConn)
+	}
+}
