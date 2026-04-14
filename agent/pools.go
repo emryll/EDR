@@ -240,6 +240,11 @@ func (reg *ObjectAccessRegistry) RemoveEntriesByProcess(pid uint32) {
 	delete(reg.ProcessLookup, pid)
 }
 
+// Find all corresponding entries based on the acting process.
+// @param  pids    The type of object to be accessed.
+// @param  objs   (optional) Object type filter for entries.
+// @param  names  (optional) Whitelist for object names.
+// @return          All matching object access entries.
 func (reg *ObjectAccessRegistry) FindByProcess(pids []uint32, objs []uint32, names ...string) []*AccessEntry {
 	reg.mu.RLock()
 	defer reg.mu.RUnlock()
