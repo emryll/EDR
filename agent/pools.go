@@ -12,7 +12,7 @@ import (
 type Pool map[uint32]*ProcessNode
 
 type Graph struct {
-	mu sync.RWMutex
+	mu      sync.RWMutex
 	Members map[uint32]*ProcessNode
 }
 
@@ -27,15 +27,13 @@ type Connection struct {
 	Type   Bitmask
 }
 
-
 //TODO: todo add a way to figure out which soft pool a given process is in
 
 //TODO: should probably create a function create the base pools from process list
 
 //TODO: BuildInteractionGraph()
 
-
-var PoolRegistry []*Pool // should there be an id?
+var PoolRegistry []*Pool    // should there be an id?
 func RefreshPools() []*Pool {}
 
 // add new connection or add on top of existing
@@ -141,10 +139,10 @@ func (g *Graph) CreatePools(filter Traversal) []Pool {
 
 // Describe an interaction with an object
 type AccessEntry struct {
-	Object uint32 // type enum
-	Name   string // name of object
+	Object uint32  // type enum
+	Name   string  // name of object
 	Type   Bitmask // type of interaction
-	Handle uint32 // the process handle to the object
+	Handle uint32  // the process handle to the object
 }
 
 // Lookup table for object interactions
@@ -153,9 +151,10 @@ type ObjectAccessRegistry struct {
 	mu sync.RWMutex // used internally in methods
 	// process -> object type -> name -> entry
 	ProcessLookup map[uint32]map[ProcessAccessKey][]*AccessEntry // array is for anon objects
-	// object type -> name -> process -> entry 
+	// object type -> name -> process -> entry
 	ObjectLookup map[uint32]map[ObjectAccessKey][]*AccessEntry
 }
+
 // With the triple nested map, amount of maps grows very quickly.
 // To fix this issue, the structure is partially flattened.
 // Instead of a triple map its a double map with a struct key,
@@ -169,7 +168,7 @@ type ProcessAccessKey struct {
 
 // This key struct is made to flatten ObjectLookup
 type ObjectAccessKey struct {
-	Pid uint32
+	Pid  uint32
 	Name string
 }
 
@@ -190,9 +189,12 @@ func (reg *ObjectAccessRegistry) AddEntry(entry AccessEntry, pid uint32) {
 	if reg.ObjectLookup[entry.Object][entry.Name] == nil {
 		reg.ObjectLookup[entry.Object][entry.Name] = make(map[uint32][]*AccessEntry)
 	}
-	
+
+	objectKey := entry.CreateObjectKey()
+	processKey := entry.CreateProcessKey()
+
 	// check if entry exists, update existing if does
-	entries := FindEntry(pid, entry.Object, entry.Name)
+	entries := reg.FindByProcess(pid, entry.Object, entry.Name)
 	if len(entries) > 0 {
 		for _, ent := range entries {
 			if ent.Handle != entry.Handle {
@@ -238,7 +240,7 @@ func (reg *ObjectAccessRegistry) RemoveEntriesByProcess(pid uint32) {
 	delete(reg.ProcessLookup, pid)
 }
 
-func (reg *ObjectAccessRegistry) FindByProcess(pids ...uint32, objs ...uint32, names ...uint32) []*AccessEntry {
+func (reg *ObjectAccessRegistry) FindByProcess(pids []uint32, objs []uint32, names ...string) []*AccessEntry {
 	reg.mu.RLock()
 	defer reg.mu.RUnlock()
 	if len(pids) == 0 {
@@ -246,10 +248,10 @@ func (reg *ObjectAccessRegistry) FindByProcess(pids ...uint32, objs ...uint32, n
 	}
 
 	var (
-		entries []*AccessEntry
+		entries    []*AccessEntry
 		typeFilter = make(map[uint32]bool)
 		nameFilter = make(map[string]bool)
-		pidFilter = make(map[uint32]bool)
+		pidFilter  = make(map[uint32]bool)
 	)
 
 	for _, val := range pids {
@@ -266,12 +268,12 @@ func (reg *ObjectAccessRegistry) FindByProcess(pids ...uint32, objs ...uint32, n
 		if !pidFilter[pid] {
 			continue
 		}
-		for objType, namesMap := range objMap {
+		for objKey, entries := range objMap {
 			if len(objs) > 0 && !typeFilter[objType] {
 				continue
 			}
 			for name, accessEntries := range namesMap {
-				if len(names) == 0 || namesFilter[name] {
+				if len(names) == 0 || nameFilter[name] {
 					entries = append(entries, accessEntries...)
 				}
 			}
@@ -295,12 +297,12 @@ func (reg *ObjectAccessRegistry) FindByObject(objectType Bitmask, interaction Bi
 	if len(reg.ObjectLookup[objectType]) {
 		return nil
 	}
-	
+
 	nameFilter := make(map[string]bool)
 	for _, n := range names {
 		nameFilter[n] = true
 	}
-	
+
 	var result []*AccessEntry
 	for name, entries := range reg.ObjectLookup[objectType] {
 		if len(names) > 0 && !nameFilter[name] {
@@ -309,13 +311,13 @@ func (reg *ObjectAccessRegistry) FindByObject(objectType Bitmask, interaction Bi
 		objs := getObjectsWithFilter(entries, interaction)
 		if objs != nil && len(objs) > 0 {
 			result = append(result, objs...)
-		} 
+		}
 	}
 	return result
 }
 
 // Internal helper function for finding object access entries.
-// @param  entries		 
+// @param  entries
 // @param  interaction   (optional) Bitmask describing type of interaction.
 // @param  pids...       (optional) Whitelist for object access entry pid.
 func getObjectsWithFilter(entries map[uint32][]*AccessMask, interaction Bitmask, pids ...uint32) []*AccessMask {
@@ -324,20 +326,20 @@ func getObjectsWithFilter(entries map[uint32][]*AccessMask, interaction Bitmask,
 	for _, p := range pids {
 		pidFilter[p] = true
 	}
-	
+
 	for pid, objs := range entries {
 		if len(pids) > 0 && !pidFilter[pid] {
 			continue
 		}
-		
+
 		if interaction == 0 {
 			result = append(result, objs...)
 		}
-		
-		for _,  entry = range objs {
+
+		for _, entry = range objs {
 			if entry.Type.HasFlags(interaction) {
 				result = append(result, entry)
-			} 
+			}
 		}
 	}
 }
