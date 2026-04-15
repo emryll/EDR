@@ -208,29 +208,21 @@ func (reg *ObjectAccessRegistry) AddEntry(entry AccessEntry, pid uint32) {
 // This function should be called when a process exits, to cleanup.
 func (reg *ObjectAccessRegistry) RemoveEntriesByProcess(pid uint32) {
 	reg.mu.Lock()
-	defer r.mu.Unlock()
-	// check that map entries exist
-	if objTypeMap, exists := reg.ProcessLookup[pid]; !exists {
+	defer reg.mu.Unlock()
+
+	if len(reg.ProcessLookup[pid]) == 0 {
 		return
 	}
 
 	// remove entries
-	for objType, nameMap := range objTypeMap {
-		for name := range nameMap {
-			if pidMap, exists := reg.ObjectLookup[objType][name]; !exists {
-				continue
+	for psKey, entries := range reg.ProcessLookup[pid] {
+		for _, entry := range entries {
+			objKey := ObjectAccessKey{Name: psKey.Name, Pid: pid}
+			if len(reg.ObjectLookup[uint32(entry.Type)]) > 0 {
+				delete(reg.ObjectLookup[uint32(entry.Type)], objKey)
 			}
-
-			delete(pidMap, pid)
-			if len(pidMap) == 0 {
-				delete(reg.ObjectLookup[objType], name)
-			}
-		}
-		if len(reg.ObjectLookup[objType]) == 0 {
-			delete(reg.ObjectLookup, objType)
 		}
 	}
-
 	delete(reg.ProcessLookup, pid)
 }
 
