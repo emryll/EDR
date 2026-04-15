@@ -178,16 +178,10 @@ func (reg *ObjectAccessRegistry) AddEntry(entry AccessEntry, pid uint32) {
 	defer reg.mu.Unlock()
 	// check that maps are initialized (avoid panic)
 	if reg.ProcessLookup[pid] == nil {
-		reg.ProcessLookup[pid] = make(map[uint32]map[string][]*AccessEntry)
-	}
-	if reg.ProcessLookup[pid][entry.Object] == nil {
-		reg.ProcessLookup[pid][entry.Object] = make(map[string][]*AccessEntry)
+		reg.ProcessLookup[pid] = make(map[ProcessAccessKey][]*AccessEntry)
 	}
 	if reg.ObjectLookup[entry.Object] == nil {
-		reg.ObjectLookup[entry.Object] = make(map[uint32]map[string][]*AccessEntry)
-	}
-	if reg.ObjectLookup[entry.Object][entry.Name] == nil {
-		reg.ObjectLookup[entry.Object][entry.Name] = make(map[uint32][]*AccessEntry)
+		reg.ObjectLookup[entry.Object] = make(map[ObjectAccessKey][]*AccessEntry)
 	}
 
 	objectKey := entry.CreateObjectKey()
@@ -269,19 +263,18 @@ func (reg *ObjectAccessRegistry) FindByProcess(pids []uint32, objs []uint32, nam
 		nameFilter[val] = true
 	}
 
-	for pid, objMap := range reg.ProcessLookup {
-		if !pidFilter[pid] {
+	for _, pid := range pids {
+		if len(reg.ProcessLookup[pid]) == 0 {
 			continue
 		}
-		for objKey, entries := range objMap {
-			if len(objs) > 0 && !typeFilter[objType] {
+		for objKey, accessEntries := range reg.ProcessLookup[pid] {
+			if len(objs) > 0 && !typeFilter[objKey.ObjType] {
 				continue
 			}
-			for name, accessEntries := range namesMap {
-				if len(names) == 0 || nameFilter[name] {
-					entries = append(entries, accessEntries...)
-				}
+			if len(names) > 0 && !nameFilter[objKey.Name] {
+				continue
 			}
+			entries = append(entries, accessEntries...)
 		}
 	}
 	return entries
