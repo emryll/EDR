@@ -135,6 +135,12 @@ func (g *Graph) CreatePools(filter Traversal) []Pool {
 	//TODO: traverse graph with given rules
 }
 
+func GetGraph(pid uint32) *Graph {
+	processes[int(pid)].graphMu.RLock()
+	defer processes[int(pid)].graphMu.RUnlock()
+	return processes[int(pid)].ProcessNetwork
+}
+
 //*===================[ Object Access Lookup ]==========================
 
 // Describe an interaction with an object
@@ -350,3 +356,6 @@ func (entry *AccessEntry) RegisterInteraction(pid uint32) {
 		graph.AddConnection(entry.Type, pid, newConn)
 	}
 }
+
+//TODO: func (reg *ObjectAccessRegistry) GetNewConnections(pid uint32) {...}
+//TODO: func GetGraph(pid uint32) {...}

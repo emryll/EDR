@@ -25,6 +25,8 @@ type Process struct {
 	IsSigned       bool
 	IsElevated     bool
 	Integrity      uint32
+	graphMu        sync.RWMutex
+	ProcessNetwork *Graph
 	StaticScanDone bool // represents the first static scan to avoid unnecessary extra scans. might also want a file scan history
 	Score          Score
 	// this is collected telemetry data history
