@@ -912,3 +912,7 @@ func InterpretBitmaskValue(mask Bitmask, domain uint8) any {
 	}
 	return result
 }
+
+func (b Bitmask) HasFlags(flags Bitmask) bool {
+	return (b & flags) == flags
+}
