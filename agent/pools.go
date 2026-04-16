@@ -191,7 +191,7 @@ func (reg *ObjectAccessRegistry) AddEntry(entry AccessEntry, pid uint32) {
 	processKey := entry.CreateProcessKey()
 
 	// check if entry exists, update existing if does
-	entries := reg.FindByProcess(pid, entry.Object, entry.Name)
+	entries := reg.FindByProcess([]uint32{pid}, []uint32{entry.Object}, entry.Name)
 	if len(entries) > 0 {
 		for _, ent := range entries {
 			if ent.Handle != entry.Handle {
@@ -203,8 +203,8 @@ func (reg *ObjectAccessRegistry) AddEntry(entry AccessEntry, pid uint32) {
 	}
 
 	e := entry // just to be safe with uniqueness...
-	reg.ProcessLookup[pid][entry.Object][entry.Name] = append(reg.ProcessLookup[pid][entry.Object][entry.Name], &e)
-	reg.ObjectLookup[entry.Object][entry.Name][pid] = append(reg.ObjectLookup[entry.Object][entry.Name][pid], &e)
+	reg.ProcessLookup[pid][processKey] = append(reg.ProcessLookup[pid][processKey], &e)
+	reg.ObjectLookup[pid][objectKey] = append(reg.ObjectLookup[pid][objectKey], &e)
 }
 
 // Delete all interaction entries under a certain process.
