@@ -281,60 +281,29 @@ func (reg *ObjectAccessRegistry) FindByProcess(pids []uint32, objs []uint32, nam
 // @param  names         (optional) Whitelist for object names.
 // @return               All matching object access entries.
 func (reg *ObjectAccessRegistry) FindByObject(objectType Bitmask, interaction Bitmask, names ...string) []*AccessEntry {
-	// object type is mandatory
-	// specifying object names is optional
-	// specifying interaction is optional (0 for any)
-
-	//TODO: mutex
-
-	if len(reg.ObjectLookup[objectType]) {
+	if len(reg.ObjectLookup[uint32(objectType)]) == 0 {
 		return nil
 	}
+	var (
+		result     []*AccessEntry
+		nameFilter = make(map[string]bool)
+	)
 
-	nameFilter := make(map[string]bool)
-	for _, n := range names {
-		nameFilter[n] = true
+	for _, name := range names {
+		nameFilter[name] = true
 	}
 
-	var result []*AccessEntry
-	for name, entries := range reg.ObjectLookup[objectType] {
-		if len(names) > 0 && !nameFilter[name] {
+	for key, entries := range reg.ObjectLookup[uint32(objectType)] {
+		if len(names) > 0 && !nameFilter[key.Name] {
 			continue
 		}
-		objs := getObjectsWithFilter(entries, interaction)
-		if objs != nil && len(objs) > 0 {
-			result = append(result, objs...)
-		}
-	}
-	return result
-}
-
-// Internal helper function for finding object access entries.
-// @param  entries
-// @param  interaction   (optional) Bitmask describing type of interaction.
-// @param  pids...       (optional) Whitelist for object access entry pid.
-func getObjectsWithFilter(entries map[uint32][]*AccessEntry, interaction Bitmask, pids ...uint32) []*AccessEntry {
-	var result []*AccessEntry
-	pidFilter := make(map[uint32]bool)
-	for _, p := range pids {
-		pidFilter[p] = true
-	}
-
-	for pid, objs := range entries {
-		if len(pids) > 0 && !pidFilter[pid] {
-			continue
-		}
-
-		if interaction == 0 {
-			result = append(result, objs...)
-		}
-
-		for _, entry := range objs {
+		for _, entry := range entries {
 			if entry.Type.HasFlags(interaction) {
 				result = append(result, entry)
 			}
 		}
 	}
+	return result
 }
 
 // Register a tracked interaction to the registry and graph.
