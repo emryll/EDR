@@ -27,14 +27,10 @@ type Connection struct {
 	Type   Bitmask
 }
 
-//TODO: todo add a way to figure out which soft pool a given process is in
-
-//TODO: should probably create a function create the base pools from process list
-
-//TODO: BuildInteractionGraph()
-
-var PoolRegistry []*Pool    // should there be an id?
-func RefreshPools() []*Pool {}
+var (
+	g_ObjectAccessRegistry *ObjectAccessRegistry
+	g_GraphRegistry        []*Graph // should there be an id?
+)
 
 // add new connection or add on top of existing
 // weight is incremented by the specified amount
@@ -149,6 +145,7 @@ type AccessEntry struct {
 	Name   string  // name of object
 	Type   Bitmask // type of interaction
 	Handle uint32  // the process handle to the object
+	Pid    uint32
 }
 
 // Lookup table for object interactions
@@ -316,8 +313,8 @@ func (reg *ObjectAccessRegistry) FindByObject(objectType Bitmask, interaction Bi
 // @param  entries
 // @param  interaction   (optional) Bitmask describing type of interaction.
 // @param  pids...       (optional) Whitelist for object access entry pid.
-func getObjectsWithFilter(entries map[uint32][]*AccessMask, interaction Bitmask, pids ...uint32) []*AccessMask {
-	var result []*AccessMask
+func getObjectsWithFilter(entries map[uint32][]*AccessEntry, interaction Bitmask, pids ...uint32) []*AccessEntry {
+	var result []*AccessEntry
 	pidFilter := make(map[uint32]bool)
 	for _, p := range pids {
 		pidFilter[p] = true
@@ -332,7 +329,7 @@ func getObjectsWithFilter(entries map[uint32][]*AccessMask, interaction Bitmask,
 			result = append(result, objs...)
 		}
 
-		for _, entry = range objs {
+		for _, entry := range objs {
 			if entry.Type.HasFlags(interaction) {
 				result = append(result, entry)
 			}
@@ -342,20 +339,33 @@ func getObjectsWithFilter(entries map[uint32][]*AccessMask, interaction Bitmask,
 
 // Register a tracked interaction to the registry and graph.
 // Before running this you should check that the interaction
-// is something used in the relationship graphing.
-func (entry *AccessEntry) RegisterInteraction(pid uint32) {
-	g_ObjectAccessRegistry.AddEntry(entry, pid)
+// is something used in the relationship graphing (for efficiency).
+func (entry *AccessEntry) RegisterInteraction() {
+	g_ObjectAccessRegistry.AddEntry(*entry, entry.Pid)
 
-	connections := entry.GetNewConnections(pid)
+	connections := entry.GetNewConnections()
 	if len(connections) == 0 {
 		return
 	}
 
-	graph := GetGraph(pid)
+	graph := GetGraph(entry.Pid)
 	for _, newConn := range connections {
-		graph.AddConnection(entry.Type, pid, newConn)
+		graph.AddConnection(entry.Type, entry.GetWeight(), pid, newConn)
 	}
 }
 
-//TODO: func (reg *ObjectAccessRegistry) GetNewConnections(pid uint32) {...}
-//TODO: func GetGraph(pid uint32) {...}
+func (entry *AccessEntry) GetNewConnections() []uint32 {
+	entries := g_ObjectAccessRegistry.FindByObject(entry.Object, entry.Type, entry.Name)
+	for _, ent := range entries {
+		//TODO: see if the connection is already registered in graph
+
+	}
+}
+
+func (entry *AccessEntry) GetWeight() int {
+	var weight int
+	switch entry.Type {
+	//TODO:
+	}
+	return weight
+}
