@@ -319,12 +319,12 @@ func (entry *AccessEntry) RegisterInteraction() {
 
 	graph := GetGraph(entry.Pid)
 	for _, newConn := range connections {
-		graph.AddConnection(entry.Type, entry.GetWeight(), pid, newConn)
+		graph.AddConnection(entry.Type, entry.GetWeight(), entry.Pid, newConn)
 	}
 }
 
 func (entry *AccessEntry) GetNewConnections() []uint32 {
-	entries := g_ObjectAccessRegistry.FindByObject(entry.Object, entry.Type, entry.Name)
+	entries := g_ObjectAccessRegistry.FindByObject((Bitmask)(entry.Object), entry.Type, entry.Name)
 	for _, ent := range entries {
 		//TODO: see if the connection is already registered in graph
 
@@ -337,4 +337,12 @@ func (entry *AccessEntry) GetWeight() int {
 	//TODO:
 	}
 	return weight
+}
+
+func (entry *AccessEntry) CreateObjectKey() ObjectAccessKey {
+	return ObjectAccessKey{Name: entry.Name, Pid: entry.Pid}
+}
+
+func (entry *AccessEntry) CreateProcessKey() ProcessAccessKey {
+	return ProcessAccessKey{Name: entry.Name, ObjType: entry.Object}
 }
