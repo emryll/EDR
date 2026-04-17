@@ -12,6 +12,7 @@ import (
 type Pool map[uint32]*ProcessNode
 
 type Graph struct {
+	id      int
 	mu      sync.RWMutex
 	Members map[uint32]*ProcessNode
 }
@@ -27,14 +28,10 @@ type Connection struct {
 	Type   Bitmask
 }
 
-type GraphEntry struct {
-	id    int
-	Graph *Graph
-}
-
-type GraphRegistry map[uint32]Graph // key is id
+type GraphRegistry map[int]*Graph // key is id
 
 var (
+	ID_COUNTER             = 1
 	g_ObjectAccessRegistry *ObjectAccessRegistry
 	g_GraphRegistry        GraphRegistry // should there be an id?
 )
@@ -150,10 +147,37 @@ func SetGraph(pid uint32, graph *Graph) {
 	processes[int(pid)].ProcessNetwork = graph
 }
 
+func (r GraphRegistry) Add(graph *Graph) {
+	r[graph.id] = graph
+}
+
 func (r GraphRegistry) Remove(graph *Graph) {
-	processes[int(pid)].graphMu.Lock()
-	defer processes[int(pid)].graphMu.Unlock()
 	delete(r, graph.id)
+}
+
+func (r GraphRegistry) Lookup(id int) *Graph {
+	if graph, exists := r[id]; exists {
+		return graph
+	}
+	return nil
+}
+
+// Create new empty graph and add it to registry.
+func CreateNewGraph(gr GraphRegistry) *Graph {
+	var id int
+	for {
+		id = ID_COUNTER
+		if g := gr.Lookup(id); g == nil {
+			break
+		}
+	}
+
+	graph := Graph{
+		id:      id,
+		Members: make(map[uint32]*ProcessNode),
+	}
+	gr.Add(&graph)
+	return &graph
 }
 
 //*===================[ Object Access Lookup ]==========================
