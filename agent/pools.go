@@ -18,6 +18,7 @@ type Graph struct {
 }
 
 type ProcessNode struct {
+	ProcessId   uint32 // included for ease / stability with untracked processes
 	Process     *Process
 	Connections map[uint32]*Connection
 }
@@ -33,25 +34,28 @@ type GraphRegistry map[int]*Graph // key is id
 var (
 	ID_COUNTER             = 1
 	g_ObjectAccessRegistry *ObjectAccessRegistry
-	g_GraphRegistry        GraphRegistry // should there be an id?
+	g_GraphRegistry        GraphRegistry
 )
 
-// add new connection or add on top of existing
-// weight is incremented by the specified amount
+// Add a graph connection between two processes, or update existing.
+// Weight is incremented by the specified amount and flags are appended.
 func (g *Graph) AddConnection(flags Bitmask, weight int, node1 uint32, node2 uint32) {
-	//TODO: this should take into account the merging of pools
-	if GetProcessGraph(node1) != GetProcessGraph(node2) {
+	graph1 := GetGraph(node1)
+	// merge if they are different graphs
+	if graph1 != nil && graph1 != GetGraph(node2) {
 		g.Merge() //TODO: untracked processes are a problem? what to do with them?
 	}
 
 	g.mu.Lock()
 	defer g.mu.Unlock()
+	// make sure maps are allocated (avoid panic)
 	if g.Connections[node1] == nil {
 		g.Connections[node1] = make(map[uint32]Connection)
 	}
 	if g.Connections[node2] == nil {
 		g.Connections[node2] = make(map[uint32]Connection)
 	}
+
 	conn_k := g.Connections[node1][node2]
 	conn_n := g.Connections[node2][node1]
 	// alter edges
@@ -95,16 +99,26 @@ func (g *Graph) StripConnection(flags Bitmask, weight int, node1 uint32, node2 u
 
 // no-op if connection does not exist
 func (g *Graph) RemoveConnection(node1 uint32, node2 uint32) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+	g.mu.Lock()
+	defer g.mu.Unlock()
 
-	if p.Connections[node1] == nil || p.Connections[node2] == nil {
-		return
+	if p1, exists := g.Members[node1]; exists && p1 != nil {
+		delete(p1.Connections, node2)
+		// if there is nothing connecting this process
+		// to the current graph, then move it to new one
+		if len(p1.Connections) == 0 {
+			CreateNewGraph(g_GraphRegistry, p1)
+		}
 	}
 
-	delete(p.Connections[node1], node2)
-	delete(p.Connections[node2], node1)
-	//TODO: should you also check if each node's pool changed?
+	if p2, exists := g.Members[node2]; exists && p2 != nil {
+		delete(p2.Connections, node1)
+		// if there is nothing connecting this process
+		// to the current graph, then move it to new one
+		if len(p2.Connections) == 0 {
+			CreateNewGraph(g_GraphRegistry, p2)
+		}
+	}
 }
 
 // Merge another graph into this graph.
@@ -163,7 +177,7 @@ func (r GraphRegistry) Lookup(id int) *Graph {
 }
 
 // Create new empty graph and add it to registry.
-func CreateNewGraph(gr GraphRegistry) *Graph {
+func CreateNewGraph(gr GraphRegistry, nodes ...*ProcessNode) *Graph {
 	var id int
 	for {
 		id = ID_COUNTER
@@ -176,6 +190,16 @@ func CreateNewGraph(gr GraphRegistry) *Graph {
 		id:      id,
 		Members: make(map[uint32]*ProcessNode),
 	}
+
+	for _, node := range nodes {
+		graph.Members[node.ProcessId] = node
+	}
+
+	// should you check that connections are valid?
+	// it adds slight overhead, but without it nodes
+	// could be passed even if they dont form a coherent
+	// graph, i.e. there are "islands", not all are connected.
+
 	gr.Add(&graph)
 	return &graph
 }
