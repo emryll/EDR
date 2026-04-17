@@ -27,9 +27,16 @@ type Connection struct {
 	Type   Bitmask
 }
 
+type GraphEntry struct {
+	id    int
+	Graph *Graph
+}
+
+type GraphRegistry map[uint32]Graph // key is id
+
 var (
 	g_ObjectAccessRegistry *ObjectAccessRegistry
-	g_GraphRegistry        []*Graph // should there be an id?
+	g_GraphRegistry        GraphRegistry // should there be an id?
 )
 
 // add new connection or add on top of existing
@@ -106,17 +113,17 @@ func (g *Graph) RemoveConnection(node1 uint32, node2 uint32) {
 // Merge another graph into this graph.
 // This will delete the other graph with merge.
 // This method should be used on the larger graph.
-func (g *Graph) Merge(other *Graph, reg *GraphRegistry) {
+func (g *Graph) Merge(other *Graph, graphRegistry GraphRegistry) {
 	g.mu.Lock()
 	other.mu.Lock()
 	defer g.mu.Unlock()
 	defer other.mu.Unlock()
 	for pid, node := range other.Members {
 		g.Members[pid] = node
-		//TODO: update process structure pointer to graph
+		SetGraph(pid, g)
 	}
-	if reg != nil {
-		reg.Remove(other)
+	if graphRegistry != nil {
+		graphRegistry.Remove(other)
 	}
 }
 
