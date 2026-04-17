@@ -144,6 +144,18 @@ func GetGraph(pid uint32) *Graph {
 	return processes[int(pid)].ProcessNetwork
 }
 
+func SetGraph(pid uint32, graph *Graph) {
+	processes[int(pid)].graphMu.Lock()
+	defer processes[int(pid)].graphMu.Unlock()
+	processes[int(pid)].ProcessNetwork = graph
+}
+
+func (r GraphRegistry) Remove(graph *Graph) {
+	processes[int(pid)].graphMu.Lock()
+	defer processes[int(pid)].graphMu.Unlock()
+	delete(r, graph.id)
+}
+
 //*===================[ Object Access Lookup ]==========================
 
 // Describe an interaction with an object
