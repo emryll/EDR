@@ -26,6 +26,7 @@ const (
 	MAX_PROCESS_SCORE         = 100
 	MAX_STATIC_SCORE          = 100
 
+	// score response thresholds
 	SCORE_STATIC_ALERT_THRESHOLD = 60
 	SCORE_STATIC_FINAL_THRESHOLD = 90
 	SCORE_RANSOM_ALERT_THRESHOLD = 50
@@ -33,6 +34,7 @@ const (
 	SCORE_TOTAL_ALERT_THRESHOLD  = 50
 	SCORE_TOTAL_FINAL_THRESHOLD  = 80
 
+	//
 	MEMORYSCAN_INTERVAL         = 30  //sec
 	THREADSCAN_INTERVAL         = 30  //sec
 	HANDLESCAN_INTERVAL         = 30  // sec
@@ -43,11 +45,15 @@ const (
 	TM_CLEANUP_INTERVAL_HARD    = 30 //sec
 	NUM_ENSLAVED_JANITORS 		= 50 // telemetry cleanup workers
 	HANDLE_CACHE_EXPIRATION     = 3 // sec
+	UNBACKED_CODE_THRESHOLD 	= 16000 // size threshold (B)
+	UNBACKED_CODE_SCORE 		= 30
 
+	//* scan types
 	SCAN_MEMORYSCAN      = 0 // scan RWX mem and .text of main module
 	SCAN_MEMORYSCAN_EX   = 1 // scan all sections of all modules
 	SCAN_MEMORY_MODULE   = 2 // fully scan specific module
 	SCAN_MEMORYSCAN_FULL = 3 // scan the whole process
+	SCAN_UNBACKED_CODE   = 5 // scan for unbacked memory pages and launch additional
 	SCAN_THREADSCAN      = 0x10
 	SCAN_HANDLESCAN      = 0xff
 
@@ -79,24 +85,24 @@ const (
 	ETW_TI_SUSPEND_RESUME_PROCESS3 = 19
 	ETW_TI_SUSPEND_RESUME_PROCESS4 = 20
 
+	// packet types for TelemetryHeader
 	TM_TYPE_EMPTY_VALUE    = 0
 	TM_TYPE_API_CALL       = 1
-	TM_TYPE_FILE_EVENT     = 2
-	TM_TYPE_REG_EVENT      = 3
 	TM_TYPE_TEXT_INTEGRITY = 4
 	TM_TYPE_IAT_INTEGRITY  = 5
 	TM_TYPE_GENERIC_ALERT  = 6
-	TM_TYPE_HANDLE      = 7
+	TM_TYPE_HANDLE         = 7
+	TM_TYPE_ETW_GENERIC   = 10 // Unknown ETW provider
+	TM_TYPE_ETW_FILE      = 11 // Microsoft-Windows-Kernel-File
+	TM_TYPE_ETW_REG       = 12 // Microsoft-Windows-Kernel-Registry
+	TM_TYPE_ETW_PS        = 13 // Microsoft-Windows-Kernel-Process
+	TM_TYPE_ETW_NET       = 14 // Microsoft-Windows-Kernel-Network
+	TM_TYPE_ETW_TI        = 15 // Microsoft-Windows-Threat-Intelligence
+	TM_TYPE_ETW_SCH       = 16 // Microsoft-Windows-TaskScheduler
+	TM_TYPE_ETW_SVC       = 17 // Microsoft-Windows-Services
+	TM_TYPE_ETW_SVCHOST   = 18 // Microsoft-Windows-Services-Svchost
+	TM_TYPE_ETW_SCM       = 19 // Service Control Manager 
 
-	API_ARG_TYPE_EMPTY   = 0
-	API_ARG_TYPE_DWORD   = 1
-	API_ARG_TYPE_ASTRING = 2
-	API_ARG_TYPE_WSTRING = 3
-	API_ARG_TYPE_BOOL    = 4
-	API_ARG_TYPE_PTR     = 5
-
-	MAX_API_ARGS                = 10
-	API_ARG_MAX_SIZE            = 520
 	TM_HEADER_SIZE              = 22
 	TM_MAX_DATA_SIZE            = 67624 - TM_HEADER_SIZE
 	FLAG_PRINT_INFO             = 1
@@ -104,7 +110,6 @@ const (
 	FLAG_RANSOMWARE             = 4
 	SCORE_STATIC                = 1
 	SCORE_RANSOMWARE            = 2
-	ALERT_SCORE_THRESHOLD       = 1
 	THREAD_ENTRY_OUTSIDE_MODULE = 2
 	THREAD_ENTRY_UNBACKED_MEM   = 3
 
@@ -115,6 +120,15 @@ const (
 //	FILE_ACTION_DELETE = 0
 //	FILE_ACTION_MODIFY = 1 << 0
 //	FILE_ACTION_CREATE = 1 << 1
+
+	//* alert types
+	ALERT_SCORE_THRESHOLD       = 1
+	ALERT_UNBACKED_CODE         = 2
+	ALERT_DLL_INJECTION         = 3
+	ALERT_PROCESS_INJECTION     = 4
+	ALERT_RANSOMWARE = 9
+	ALERT_PERSISTANCE = 10
+	ALERT_INFOSTEALER = 11
 
 	//* object types
 	OBJECT_TYPE_UNKNOWN        = 0
@@ -164,7 +178,35 @@ const (
 	DEFAULT_BANNER = TOTORO_BANNER1
 )
 
-var ( // Handle Cache Cleanup modifiers
+// for now 1-100 scale indicating confidence
+const ( // Process Graphing interaction bitflags
+	PG_DIRECT_RELATIVE Bitmask = 1 << iota 
+	PG_INTERPROCESS_COMMS 
+	PG_SAME_FILE_READ   
+	PG_SAME_FILE_WRITE    
+	PG_SAME_DIR_FS_OP     
+	PG_SAME_PS_ACCESS     
+	PG_SAME_MEM_ACCESS    
+	PG_PROCESS_EXEC       
+	PG_SHARED_SYNC        
+	PG_SAME_BINARY        
+)
+
+const ( //Process Graphing interaction modifiers
+	// interaction weights (how likely to directly co-operate)
+	PG_DIRECT_RELATIVE_WEIGHT    = 80  // parent, child, sibling
+	PG_INTERPROCESS_COMMS_WEIGHT = 70  // shared IPC channel
+	PG_SAME_FILE_READ_WEIGHT     = 10  // reading same file
+	PG_SAME_FILE_WRITE_WEIGHT    = 30  // writing same file
+	PG_SAME_DIR_FS_OP_WEIGHT     = 10  // operating on a file in same dir
+	PG_SAME_PS_ACCESS_WEIGHT     = 35  // accessing the same process (in any way)
+	PG_SAME_MEM_ACCESS_WEIGHT    = 50  // accessing same memory space
+	PG_PROCESS_EXEC_WEIGHT       = 80  // setting execution on process
+	PG_SHARED_SYNC_WEIGHT        = 30  // sharing same sync object
+	PG_SAME_BINARY_WEIGHT        = 60  // having the same exe file
+)
+
+var ( //* Handle Cache Cleanup modifiers
 	HCC_MULTIPLIER_CONST = 1
 	HCC_OBJECT_MULTIPLIER = 2
 	HCC_TIME_MULTIPLIER = 2

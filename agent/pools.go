@@ -4,7 +4,7 @@ import (
 	"sync"
 )
 
-//  this file is for the experimental process pool idea, for multi-process correlation
+//  this file is for the experimental process pool idea used for multi-process correlation
 //  it is going to be fully implemented in later versions but already basing some stuff on the skeleton
 
 // A pool is a subset of a graph,
@@ -41,8 +41,12 @@ var (
 // Weight is incremented by the specified amount and flags are appended.
 func (g *Graph) AddConnection(flags Bitmask, weight int, node1 uint32, node2 uint32) {
 	graph1 := GetGraph(node1)
+	graph2 := GetGraph(node2)
 	// merge if they are different graphs
-	if graph1 != nil && graph1 != GetGraph(node2) {
+	if graph1 != nil && graph1 != graph2 {
+		if graph1 != g && graph2 != g {
+			graph1.Merge(graph2, g_GraphRegistry)
+		}
 		g.Merge() //TODO: untracked processes are a problem? what to do with them?
 	}
 
@@ -400,8 +404,35 @@ func (entry *AccessEntry) GetNewConnections() []uint32 {
 
 func (entry *AccessEntry) GetWeight() int {
 	var weight int
-	switch entry.Type {
-	//TODO:
+	if entry.Type.HasFlags(PG_DIRECT_RELATIVE) {
+		weight += PG_DIRECT_RELATIVE_WEIGHT
+	}
+	if entry.Type.HasFlags(PG_INTERPROCESS_COMMS) {
+		weight += PG_INTERPROCESS_COMMS_WEIGHT
+	}
+	if entry.Type.HasFlags(PG_SAME_FILE_WRITE) {
+		weight += PG_SAME_FILE_WRITE_WEIGHT
+	}
+	if entry.Type.HasFlags(PG_SAME_FILE_READ) {
+		weight += PG_SAME_FILE_READ_WEIGHT
+	}
+	if entry.Type.HasFlags(PG_SAME_DIR_FS_OP) {
+		weight += PG_SAME_DIR_FS_OP_WEIGHT
+	}
+	if entry.Type.HasFlags(PG_SAME_PS_ACCESS) {
+		weight += PG_SAME_PS_ACCESS_WEIGHT
+	}
+	if entry.Type.HasFlags(PG_SAME_MEM_ACCESS) {
+		weight += PG_SAME_MEM_ACCESS_WEIGHT
+	}
+	if entry.Type.HasFlags(PG_PROCESS_EXEC) {
+		weight += PG_PROCESS_EXEC_WEIGHT
+	}
+	if entry.Type.HasFlags(PG_SHARED_SYNC) {
+
+	}
+	if entry.Type.HasFlags(PG_SAME_BINARY) {
+		weight += PG_SAME_BINARY_WEIGHT
 	}
 	return weight
 }
