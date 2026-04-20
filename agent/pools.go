@@ -25,7 +25,7 @@ type ProcessNode struct {
 
 type Connection struct {
 	Target *ProcessNode
-	Weight uint8
+	Weight uint32
 	Type   Bitmask
 }
 
@@ -72,32 +72,46 @@ func (g *Graph) AddConnection(flags Bitmask, weight int, node1 uint32, node2 uin
 	g.Connections[node2][node1] = conn_n
 }
 
-// remove weight or type from connection
+// Returns resulting bitmask after stripping
+func (c *Connection) Strip(flags Bitmask, weight int) Bitmask {
+	c.Weight -= uint32(weight)
+	c.Type &^= flags // strip flags
+	return c.Type
+}
+
+// remove weight or type from connection IN BOTH NODES.
 // if the connection doesnt exist, or they dont have the flags, no-op
 func (g *Graph) StripConnection(flags Bitmask, weight int, node1 uint32, node2 uint32) {
-	if p.Connections[node1] != nil {
-		if _, exists := p.Connections[node1][node2]; exists {
-			conn := p.Connections[node1][node2]
-			conn.Weight -= weight
-			conn.Type &^= flags // strip flags
-			p.Connections[node1][node2] = conn
-			if conn.Type == 0 {
-				// note that node1 process struct still points to pool
-				delete(p.Connections[node1], node2)
+	var (
+		node1Remove bool
+		node2Remove bool
+	)
+	if g.Members[node1] != nil {
+		if _, exists := g.Members[node1].Connections[node2]; exists {
+			conn := g.Members[node1].Connections[node2].Strip(flags, weight)
+			if conn == 0 { // no connection type left
+				node1Remove = true
 			}
 		}
+	} else {
+		node1Remove = true
 	}
-	if p.Connections[node2] != nil {
-		if _, exists := p.Connections[node2][node1]; exists {
-			conn := p.Connections[node2][node1]
-			conn.Weight -= weight
-			conn.Type &^= flags // strip flags
-			p.Connections[node2][node1] = conn
-			if conn.Type == 0 {
-				// note that node2 process struct still points to pool
-				delete(p.Connections[node2], node1)
+	if g.Members[node2] != nil {
+		if _, exists := g.Members[node2].Connections[node1]; exists {
+			conn := g.Members[node2].Connections[node1].Strip(flags, weight)
+			if conn == 0 {
+				node2Remove = true
 			}
 		}
+	} else {
+		node2Remove = true
+	}
+
+	// a connection could be one-way,
+	// so it is fully removed only if
+	// there is no connection at all.
+	if node1Remove && node2Remove {
+		g.RemoveConnection(node1, node2)
 	}
 }
 
@@ -429,7 +443,7 @@ func (entry *AccessEntry) GetWeight() int {
 		weight += PG_PROCESS_EXEC_WEIGHT
 	}
 	if entry.Type.HasFlags(PG_SHARED_SYNC) {
-
+		weight += PG_SHARED_SYNC_WEIGHT
 	}
 	if entry.Type.HasFlags(PG_SAME_BINARY) {
 		weight += PG_SAME_BINARY_WEIGHT
