@@ -37,46 +37,47 @@ var (
 	g_GraphRegistry        GraphRegistry
 )
 
+// Returns resulting bitmask after stripping
+func (c *Connection) Strip(flags Bitmask, weight int) Bitmask {
+	c.Weight -= uint32(weight)
+	c.Type &^= flags // strip flags
+	return c.Type
+}
+
+// Add weight or new connection type to a connection.
+func (c *Connection) Expand(flags Bitmask, weight int) {
+	c.Weight += uint32(weight)
+	c.Type |= flags
+}
+
 // Add a graph connection between two processes, or update existing.
 // Weight is incremented by the specified amount and flags are appended.
 func (g *Graph) AddConnection(flags Bitmask, weight int, node1 uint32, node2 uint32) {
 	graph1 := GetGraph(node1)
 	graph2 := GetGraph(node2)
 	// merge if they are different graphs
-	if graph1 != nil && graph1 != graph2 {
-		if graph1 != g && graph2 != g {
+	if graph1 != nil && graph2 != nil && graph1 != graph2 {
+		if graph1 == g {
+			g.Merge(graph2, g_GraphRegistry)
+		} else if graph2 == g {
+			g.Merge(graph1, g_GraphRegistry)
+		} else {
 			graph1.Merge(graph2, g_GraphRegistry)
 		}
-		g.Merge() //TODO: untracked processes are a problem? what to do with them?
 	}
 
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	// make sure maps are allocated (avoid panic)
-	if g.Connections[node1] == nil {
-		g.Connections[node1] = make(map[uint32]Connection)
+	if g.Members[node1] == nil {
+		g.Members[node1].Connections = make(map[uint32]*Connection)
 	}
-	if g.Connections[node2] == nil {
-		g.Connections[node2] = make(map[uint32]Connection)
+	if g.Members[node2] == nil {
+		g.Members[node2].Connections = make(map[uint32]*Connection)
 	}
 
-	conn_k := g.Connections[node1][node2]
-	conn_n := g.Connections[node2][node1]
-	// alter edges
-	conn_k.Weight += weight
-	conn_n.Weight += weight
-	conn_k.Type |= flags
-	conn_k.Type |= flags
-	// add connection
-	g.Connections[node1][node2] = conn_k
-	g.Connections[node2][node1] = conn_n
-}
-
-// Returns resulting bitmask after stripping
-func (c *Connection) Strip(flags Bitmask, weight int) Bitmask {
-	c.Weight -= uint32(weight)
-	c.Type &^= flags // strip flags
-	return c.Type
+	g.Members[node1].Connections[node2].Expand(flags, weight)
+	g.Members[node2].Connections[node1].Expand(flags, weight)
 }
 
 // remove weight or type from connection IN BOTH NODES.
@@ -143,6 +144,7 @@ func (g *Graph) RemoveConnection(node1 uint32, node2 uint32) {
 // This will delete the other graph with merge.
 // This method should be used on the larger graph.
 func (g *Graph) Merge(other *Graph, graphRegistry GraphRegistry) {
+	//TODO: make sure that smaller graph merges into larger
 	g.mu.Lock()
 	other.mu.Lock()
 	defer g.mu.Unlock()
