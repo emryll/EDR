@@ -144,17 +144,30 @@ func (g *Graph) RemoveConnection(node1 uint32, node2 uint32) {
 // This will delete the other graph with merge.
 // This method should be used on the larger graph.
 func (g *Graph) Merge(other *Graph, graphRegistry GraphRegistry) {
-	//TODO: make sure that smaller graph merges into larger
 	g.mu.Lock()
 	other.mu.Lock()
 	defer g.mu.Unlock()
 	defer other.mu.Unlock()
-	for pid, node := range other.Members {
-		g.Members[pid] = node
+
+	var (
+		larger  *Graph
+		smaller *Graph
+	)
+	// merge smaller into larger for efficiency
+	if len(g.Members) > len(other.Members) {
+		larger = g
+		smaller = other
+	} else {
+		larger = other
+		smaller = g
+	}
+
+	for pid, node := range smaller.Members {
+		larger.Members[pid] = node
 		SetGraph(pid, g)
 	}
 	if graphRegistry != nil {
-		graphRegistry.Remove(other)
+		graphRegistry.Remove(smaller)
 	}
 }
 
