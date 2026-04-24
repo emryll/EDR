@@ -226,3 +226,15 @@ const char* GetError(ERROR_CODE err) {
     }
     return "(unknown)";
 }
+
+// this function needs to be validated
+time_t FiletimeToUnixMillis(FILETIME ft) {
+    // Convert FILETIME to 64-bit value
+    uint64_t t = ((uint64_t)ft.dwHighDateTime << 32) | ft.dwLowDateTime;
+
+    // Subtract Windows epoch (1601) to Unix epoch (1970)
+    t -= 116444736000000000ULL;
+
+    // Convert from 100-nanoseconds to milliseconds
+    return t / 10000ULL;
+}

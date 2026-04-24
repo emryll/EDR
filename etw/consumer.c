@@ -100,8 +100,12 @@ BYTE* CreateEtwEventPacket(PEVENT_RECORD event, size_t* outSize) {
         free(info);
     }
     //* Create telemetry header for packet    
+    FILETIME ft;
+    ft.dwLowDateTime = event->EventHeader.TimeStamp.LowPart;
+    ft.dwHighDateTime = event->EventHeader.TimeStamp.HighPart;
+    time_t stamp = FiletimeToUnixMillis(ft);
     uint8_t source = GetInternalProviderId(event);
-    TELEMETRY_HEADER header = GetTelemetryHeader(source, totalParamSize);
+    TELEMETRY_HEADER header = GetTelemetryHeader(source, totalParamSize, totalParamSize, stamp);
     header.eventId = event->EventHeader.EventDescriptor.Id;
 
     //* Construct full telemetry packet

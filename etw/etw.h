@@ -242,6 +242,7 @@ BOOL WINAPI CtrlHandler(DWORD);
 BOOL IsAdmin();
 BOOL IsCriticalEvent(PEVENT_RECORD);
 uint8_t GetInternalProviderId(PEVENT_RECORD);
+time_t FiletimeToUnixMillis(FILETIME);
 
 void DumpPacket(BYTE*, size_t);
 void PrintEventBasic(PEVENT_RECORD);
