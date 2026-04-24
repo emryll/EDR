@@ -8,7 +8,6 @@
 
 #define ETW_PIPE_NAME "\\\\.\\pipe\\em_etw"
 #define COMMANDS_PIPE_NAME "\\\\.\\pipe\\em_cmd"
-#define SESSION_NAME "testETWsession"
 #define MAX_CMD_DATA 32
 
 #define CRITICAL_QUEUE_SIZE 500
@@ -20,8 +19,9 @@ extern HANDLE hEtw;
 extern TRACEHANDLE SessionHandle;
 extern TRACEHANDLE traceHandle;
 extern EVENT_TRACE_PROPERTIES* SessionProperties;
-extern BOOL trackAny
-extern BOOL DEBUG_BUILD
+extern BOOL trackAny;
+extern BOOL DEBUG_BUILD;
+extern char SESSION_NAME[];
 
 extern GUID FileProviderGuid;
 extern GUID RegistryProviderGuid;
@@ -47,14 +47,6 @@ typedef struct {
 // for standard queue, if enqueue fails it will be abandoned.
 extern TELEMETRY_QUEUE g_CriticalQueue;
 extern TELEMETRY_QUEUE g_StandardQueue;
-
-void InitQueue(TELEMETRY_QUEUE*, const size_t);
-void DestroyQueue(TELEMETRY_QUEUE*);
-BOOL QueueIsEmpty(TELEMETRY_QUEUE*);
-BOOL QueueIsFull(TELEMETRY_QUEUE*);
-int EnqueuePacket(TELEMETRY_QUEUE*, BYTE*, size_t);
-int DequeuePacket(TELEMETRY_QUEUE*, HANDLE, int);
-void QueueWorker(HANDLE);
 
 typedef enum {
     SUCCESS,
@@ -232,6 +224,16 @@ typedef enum {
   TDH_INTYPE_WBEMSID
 } TDH_INTYPE;
 
+ERROR_CODE InitQueue(TELEMETRY_QUEUE*, const size_t);
+void DestroyQueue(TELEMETRY_QUEUE*);
+BOOL QueueIsEmpty(TELEMETRY_QUEUE*);
+BOOL QueueIsFull(TELEMETRY_QUEUE*);
+ERROR_CODE EnqueuePacket(TELEMETRY_QUEUE*, BYTE*, size_t);
+ERROR_CODE DequeuePacket(TELEMETRY_QUEUE*, HANDLE, int);
+void QueueWorker(HANDLE);
+
+
+
 BOOL ReadFull(HANDLE, void*, DWORD);
 BOOL InitializeComms();
 char* NormalizeEventPath(WCHAR*);
@@ -244,7 +246,8 @@ uint8_t GetInternalProviderId(PEVENT_RECORD);
 void DumpPacket(BYTE*, size_t);
 void PrintEventBasic(PEVENT_RECORD);
 
-void LogError(char*, ERROR_CODE);
+void LogError(const char*, ERROR_CODE);
+const char* GetError(ERROR_CODE);
 
 VOID WINAPI EventCallback(PEVENT_RECORD);
 BYTE* CreateEtwEventPacket(PEVENT_RECORD, size_t*);
@@ -253,13 +256,20 @@ BYTE* BuildEventParameter(PEVENT_RECORD, ULONG, PTRACE_EVENT_INFO, size_t*);
 BYTE* BuildArrayParameter(size_t*, DWORD, const char*, void*, size_t);
 BYTE* BuildParameter(size_t*, DWORD, const char*, ...);
 
-BYTE* CreateParameter(char*, DWORD, DWORD, size_t*);
+BYTE* GetAnsiArray(const char**, size_t, size_t*);
+BYTE* GetUint32Array(DWORD*, size_t, size_t*);
+BYTE* GetUint64Array(UINT64*, size_t, size_t*);
+BYTE* GetBooleanArray(BOOL*, size_t, size_t*);
+
+BYTE* CreateParameterHeader(const char*, DWORD, DWORD, size_t*);
 BYTE* CreateFileEventPacket(PEVENT_RECORD, size_t*);
 BYTE* CreateRegistryEventPacket(PEVENT_RECORD, size_t*);
 BOOL ParseFileEventParameter(PEVENT_RECORD, ULONG, PTRACE_EVENT_INFO, BYTE**, size_t*, FILE_EVENT*);
 BOOL ParseRegEventParameter(PEVENT_RECORD, ULONG, PTRACE_EVENT_INFO, BYTE**, size_t*, REG_EVENT*);
 int SendEtwTelemetryPacket(PEVENT_RECORD, BYTE*, size_t, DWORD);
 TELEMETRY_HEADER GetTelemetryHeader(DWORD, DWORD, size_t, time_t);
+
+void SendPacketDirectly(HANDLE, BYTE*, size_t);
 
 #ifdef __cplusplus
 extern "C" {

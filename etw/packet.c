@@ -1,4 +1,6 @@
 #include <windows.h>
+#include <stdint.h>
+#include <cstdio>
 #include "etw.h"
 
 //?================================================================================+
@@ -234,4 +236,24 @@ BYTE* GetBooleanArray(BOOL* arr, size_t arrSize, size_t* bufSize) {
     if (buf == NULL) return NULL;
 	memcpy(buf, arr, *bufSize);
 	return buf;
+}
+
+// Translate an ETW provider id into a source id for telemetry packet.
+uint8_t GetInternalProviderId(PEVENT_RECORD event) {
+    if (IsEqualGUID(event->EventHeader.ProviderId, FileProviderGuid)) {
+        return TM_TYPE_ETW_FILE;
+    }
+    if (IsEqualGUID(event->EventHeader.ProviderId, RegistryProviderGuid)) {
+        return TM_TYPE_ETW_REG;
+    }
+    if (IsEqualGUID(event->EventHeader.ProviderId, ProcessProviderGuid)) {
+        return TM_TYPE_ETW_PS;
+    }
+    if (IsEqualGUID(event->EventHeader.ProviderId, ThreatIntelGuid)) {
+        return TM_TYPE_ETW_TI;
+    }
+    if (IsEqualGUID(event->EventHeader.ProviderId, NetworkProviderGuid)) {
+        return TM_TYPE_ETW_NET;
+    }
+    return TM_TYPE_ETW_GENERIC;
 }

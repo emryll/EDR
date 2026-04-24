@@ -50,7 +50,7 @@ char* NormalizeEventPath(WCHAR* path) {
             // Check if path starts with this device name
             if (_wcsnicmp(path, deviceName, deviceNameLen) == 0) {
                 swprintf(normalPath, MAX_PATH, L"%ls%ls", driveLetter, path + deviceNameLen);
-                char* ansiPath = ConvertWideToAnsi(normalPath);
+                char* ansiPath = WideToAnsi(normalPath);
                 
                 return ansiPath;
             }
@@ -115,7 +115,7 @@ char* UnicodeStringToAnsi(UNICODE_STRING* ustr) {
     memcpy(nullTmp, ustr->Buffer, ustr->Length);
     nullTmp[wcharCount] = L'\0';
 
-    char* ansi = ConvertWideToAnsi(nullTmp);
+    char* ansi = WideToAnsi(nullTmp);
     free(nullTmp);
     return ansi;
 }
@@ -204,7 +204,7 @@ BOOL IsCriticalEvent(PEVENT_RECORD event) {
     return TRUE;
 }
 
-void LogError(char* msg, ERROR_CODE err) {
+void LogError(const char* msg, ERROR_CODE err) {
     printf("[ERROR] %s: %s\n", msg, GetError(err));
     //TODO: log to disk
 }

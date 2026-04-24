@@ -1,5 +1,6 @@
 #include <windows.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <evntrace.h>
 #include <evntcons.h>
 #include <tdh.h>
@@ -28,7 +29,7 @@ GUID NetworkProviderGuid = {0x7DD42A49, 0x5329, 0x4832, { 0x8D, 0xFD, 0x43, 0xD9
 
 // This function is called when a new event is received.
 VOID WINAPI EventCallback(PEVENT_RECORD event) {
-    if (!trackAll && !IsTracked(event->EventHeader.ProcessId)) {
+    if (!trackAny && !IsTracked(event->EventHeader.ProcessId)) {
         return;
     }
 
@@ -39,7 +40,8 @@ VOID WINAPI EventCallback(PEVENT_RECORD event) {
     BOOL isCritical = IsCriticalEvent(event);
     TELEMETRY_QUEUE* queue = NULL;
     if (isCritical) queue = &g_CriticalQueue; else queue = &g_StandardQueue;
-    if (EnqueuePacket(queue, packet, packetSize) != 0) {
+    ERROR_CODE result = EnqueuePacket(queue, packet, packetSize); 
+    if (result != SUCCESS) {
         LogError("Failed to enqueue packet", result);
         if (isCritical) SendPacketDirectly(hEtw, packet, packetSize);
     }
@@ -150,34 +152,33 @@ BYTE* BuildEventParameter(PEVENT_RECORD event, ULONG index, PTRACE_EVENT_INFO in
 	// Construct parameter from the property value
     switch (propInfo.nonStructType.InType) {
 		// this one is actually a regular utf16 string,
-		// not a UNICODE_STRING... 
-		// microsoft devs are just pricks
-		case TDH_INTYPE_UNICODESTRING:
+		// not a UNICODE_STRING... microsoft devs are just pricks
+		case TDH_INTYPE_UNICODESTRING: {
 			char* ansiValue = WideToAnsi((WCHAR*)buffer);
 			if (ansiValue == NULL) {
 				free(name);
 				free(buffer);
 				return FALSE;
-			}
-			parameter = BuildParameter(&outSize, PARAMETER_ANSISTRING, name, ansiValue);
+			} 
+			parameter = BuildParameter(outSize, PARAMETER_ANSISTRING, name, ansiValue);
 			break;
-		
+        }
 		case TDH_INTYPE_ANSISTRING: 
-			parameter = BuildParameter(&outSize, PARAMETER_ANSISTRING, name, (char*)buffer);
+			parameter = BuildParameter(outSize, PARAMETER_ANSISTRING, name, (char*)buffer);
 			break;
 			
 		case TDH_INTYPE_POINTER:
-			parameter = BuildParameter(&outSize, PARAMETER_POINTER, name, *(void**)buffer);
+			parameter = BuildParameter(outSize, PARAMETER_POINTER, name, *(void**)buffer);
 			break;
 
 		case TDH_INTYPE_UINT32: 
-			parameter = BuildParameter(&outSize, PARAMETER_UINT32, name, *(DWORD*)buffer);
+			parameter = BuildParameter(outSize, PARAMETER_UINT32, name, *(DWORD*)buffer);
 			break;
 
 		 //case TDH_INTYPE_UINT16: 
 
 		case TDH_INTYPE_BOOLEAN: 
-			parameter = BuildParameter(&outSize, PARAMETER_BOOLEAN, name, *(BOOL*)buffer);
+			parameter = BuildParameter(outSize, PARAMETER_BOOLEAN, name, *(BOOL*)buffer);
 			break;
 	}
 	free(buffer);
