@@ -4,17 +4,31 @@
 #include <windows.h>
 #include <evntrace.h>
 #include <tdh.h>
+#include <stdint.h>
 
 #define ETW_PIPE_NAME "\\\\.\\pipe\\em_etw"
 #define COMMANDS_PIPE_NAME "\\\\.\\pipe\\em_cmd"
 #define SESSION_NAME "testETWsession"
 #define MAX_CMD_DATA 32
 
+#define CRITICAL_QUEUE_SIZE 500
+#define STANDARD_QUEUE_SIZE 1000
+
+
 extern HANDLE hCmd;
 extern HANDLE hEtw;
 extern TRACEHANDLE SessionHandle;
 extern TRACEHANDLE traceHandle;
 extern EVENT_TRACE_PROPERTIES* SessionProperties;
+extern BOOL trackAny
+extern BOOL DEBUG_BUILD
+
+extern GUID FileProviderGuid;
+extern GUID RegistryProviderGuid;
+extern GUID ProcessProviderGuid;
+extern GUID NetworkProviderGuid;
+extern GUID ThreatIntelGuid;
+
 
 typedef struct {
     LPVOID packet;
@@ -24,7 +38,7 @@ typedef struct {
 typedef struct {
     volatile ULONG64 head;   // producer index (writes)
     volatile ULONG64 tail;   // consumer index (reads)
-    const size_t capacity;   // max entries
+    size_t       capacity;   // max entries
     HANDLE       event;      // event to indicate new packet
     QUEUE_ENTRY* queue;
 } TELEMETRY_QUEUE;
@@ -48,11 +62,16 @@ typedef enum {
     ERROR_FULL_QUEUE,
     ERROR_EMPTY_QUEUE,
     ERROR_FAILED_WRITE,
+    ERROR_REALLOC,
 } ERROR_CODE;
 
 typedef enum {
-    TM_TYPE_ETW_FILE = 2,
-    TM_TYPE_ETW_REG = 3,
+    TM_TYPE_ETW_GENERIC,
+    TM_TYPE_ETW_FILE = 2, // Microsoft-Windows-Kernel-File
+    TM_TYPE_ETW_REG = 3, // Microsoft-Windows-Kernel-Registry
+    TM_TYPE_ETW_PS, // Microsoft-Windows-Kernel-Process
+    TM_TYPE_ETW_TI, // Microsoft-Windows-Threat-Intelligence
+    TM_TYPE_ETW_NET, // Microsoft-Windows-Kernel-Network
 } TM_TYPE;
 
 // these enums are the event IDs
@@ -159,11 +178,16 @@ typedef struct {
 typedef enum {
     PARAMETER_EMPTY_VALUE,
     PARAMETER_ANSISTRING,
+    PARAMETER_ASTR_ARRAY,
     PARAMETER_WIDESTRING,
     PARAMETER_POINTER,
-    PARAMETER_DWORD,
+    PARAMETER_POINTER_ARRAY,
+    PARAMETER_UINT32,
+    PARAMETER_UINT32_ARRAY,
     PARAMETER_UINT64,
+    PARAMETER_UINT64_ARRAY,
     PARAMETER_BOOLEAN,
+    PARAMETER_BOOLEAN_ARRAY,
     PARAMETER_BYTES,
 } PARAMETER_TYPE;
 
@@ -211,11 +235,23 @@ typedef enum {
 BOOL ReadFull(HANDLE, void*, DWORD);
 BOOL InitializeComms();
 char* NormalizeEventPath(WCHAR*);
-char* ConvertWideToAnsi(WCHAR*);
+char* WideToAnsi(WCHAR*);
 BOOL WINAPI CtrlHandler(DWORD);
 BOOL IsAdmin();
+BOOL IsCriticalEvent(PEVENT_RECORD);
+uint8_t GetInternalProviderId(PEVENT_RECORD);
 
 void DumpPacket(BYTE*, size_t);
+void PrintEventBasic(PEVENT_RECORD);
+
+void LogError(char*, ERROR_CODE);
+
+VOID WINAPI EventCallback(PEVENT_RECORD);
+BYTE* CreateEtwEventPacket(PEVENT_RECORD, size_t*);
+BYTE* BuildEventParameter(PEVENT_RECORD, ULONG, PTRACE_EVENT_INFO, size_t*);
+
+BYTE* BuildArrayParameter(size_t*, DWORD, const char*, void*, size_t);
+BYTE* BuildParameter(size_t*, DWORD, const char*, ...);
 
 BYTE* CreateParameter(char*, DWORD, DWORD, size_t*);
 BYTE* CreateFileEventPacket(PEVENT_RECORD, size_t*);
