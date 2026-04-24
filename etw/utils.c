@@ -23,12 +23,6 @@ BOOL IsAdmin() {
     return isAdmin;
 }
 
-// Translate an ETW provider id into a source id for telemetry packet.
-uint8_t GetInternalProviderId(PEVENT_RECORD event) {
-    // provider guid is event->EventHeader.ProviderId
-    // compare it against known provider guids with IsEqualGUID()
-}
-
 //TODO: make this more memory efficient. also dont limit path to 260 chars
 // The paths from events are wide strings and start with something like " \Device\HarddiskVolume".
 // This function converts it to a normal ansi string path with drive letters. Caller must free string.
@@ -68,7 +62,7 @@ char* NormalizeEventPath(WCHAR* path) {
 
 // Only works with null terminated wide strings.
 // Helper function to convert wide string to ansi. Caller must free the returned string.
-char* ConvertWideToAnsi(WCHAR* wideStr) {
+char* WideToAnsi(WCHAR* wideStr) {
     // First call to get the required buffer size
     int sizeNeeded = WideCharToMultiByte(CP_UTF8, 0, wideStr, -1, NULL, 0, NULL, NULL);
     if (sizeNeeded == 0) {
@@ -94,7 +88,7 @@ char* ConvertWideToAnsi(WCHAR* wideStr) {
 }
 
 // Helper to convert a windows UNICODE_STRING into an ansi string
-char* ConvertUnicodeStringToAnsi(UNICODE_STRING* ustr) {
+char* UnicodeStringToAnsi(UNICODE_STRING* ustr) {
     if (!ustr || !ustr->Buffer || ustr->Length == 0 || ustr->MaximumLength == 0) {
         if (!ustr) {
             printf("[debug] !ustr\n");
@@ -200,4 +194,35 @@ void PrintEventBasic(PEVENT_RECORD event) {
     } else {
         printf("EVENT FROM UNKNOWN PROVIDER\n");
     }
+}
+
+// Placeholder returns critical on all. Reworked soon...
+BOOL IsCriticalEvent(PEVENT_RECORD event) {
+    // - executable or remote memory alloc
+    // - create thread, queue apc, set context
+    // - others like ntsetinformationprocess (execution)
+    return TRUE;
+}
+
+void LogError(char* msg, ERROR_CODE err) {
+    printf("[ERROR] %s: %s\n", msg, GetError(err));
+    //TODO: log to disk
+}
+
+const char* GetError(ERROR_CODE err) {
+    switch (err) {
+        case SUCCESS:
+            return "Success!";
+        case ERROR_INVALID_QUEUE:
+            return "invalid queue";
+        case ERROR_FULL_QUEUE:
+            return "full queue";
+        case ERROR_EMPTY_QUEUE:
+            return "empty queue";
+        case ERROR_FAILED_WRITE:
+            return "failed write";
+        case ERROR_REALLOC:
+            return "failed to realloc";
+    }
+    return "(unknown)";
 }
