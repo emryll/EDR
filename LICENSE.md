@@ -31,8 +31,8 @@ If you wish to use this Software commercially, you must obtain a separate commer
 
 All copies or substantial portions of the Software must include:
 
-This license text
-A visible attribution to the original author(s)
+- This license text
+- A visible attribution to the original author(s)
 
 ## 5. Contributions
 
