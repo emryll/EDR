@@ -43,7 +43,6 @@ type ApiShorthand struct {
 }
 //*=======================================[ Condition set checks ]===========================================
 
-//TODO
 func (u UniversalConditions) Check(p *Process) bool {
 	//? to check if remote thread is running this, you need to get tid
 	var wantedParentFound bool
@@ -73,24 +72,42 @@ func (u UniversalConditions) Check(p *Process) bool {
 		return false
 	}
 
-	//? session id must be one of these
-	for _, id := range u.SessionId {
+	// session id check is skipped if
+	// it wasnt resolved properly for the process
+	if p.SessionId != INVALID_SESSION_ID {
+		//? session id must be one of these
+		var sessionIdFound bool
+		for _, id := range u.SessionId {
+			if id == uint32(p.SessionId) {
+				sessionIdFound = true
+				break
+			}
+		}
 
+		//? session id cant be one of these
+		for _, id := range u.SessionIdNot {
+			if id == uint32(p.SessionId) {
+				return false
+			}
+		}
 	}
 
-	//? session id cant be one of these
-	for _, id := range u.SessionIdNot {
+	if p.User != "" {
+		var userFound bool
+		userOnly := strings.Split(p.User, "\\")
+		for _, user := range u.User {
+			if user == p.User || user == userOnly {
+				userFound = true
+				break
+			}
+		}
 
+		for _, user := range u.UserNot {
+			if user == p.User || user == userOnly {
+				return false
+			}
+		}
 	}
-
-	for _, user := range u.User {
-
-	}
-
-	for _, user := range u.UserNot {
-
-	}
-
 	return true
 }
 
