@@ -928,3 +928,40 @@ func InterpretBitmaskValue(mask Bitmask, domain uint8) any {
 func (b Bitmask) HasFlags(flags Bitmask) bool {
 	return (b & flags) == flags
 }
+
+func getProcessToken(pid uint32) (windows.Token, error) {
+	handle, err := windows.OpenProcess(windows.PROCESS_QUERY_LIMITED_INFORMATION, false, pid)
+	if err != nil {
+		return 0, err
+	}
+	defer windows.CloseHandle(handle)
+
+	var token windows.Token
+	err = windows.OpenProcessToken(handle, windows.TOKEN_QUERY, &token)
+	return token, err
+}
+
+func GetProcessUser(pid uint32) (string, string, error) {
+	token, err := getProcessToken(pid)
+	if err != nil {
+		return "", "", err
+	}
+	defer token.Close()
+
+	user, err := token.GetTokenUser()
+	if err != nil {
+		return "", "", err
+	}
+
+	account, domain, _, err := user.User.Sid.LookupAccount("")
+	if err != nil {
+		return "", "", err
+	}
+	return account, domain, nil
+}
+
+func GetSessionId(pid uint32) (uint32, error) {
+	var sessionID uint32
+	err := windows.ProcessIdToSessionId(pid, &sessionID)
+	return sessionID, err
+}
