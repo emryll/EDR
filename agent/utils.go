@@ -606,6 +606,18 @@ func RegisterProcess(pid int, path string) {
 
 	hProcess, err := windows.OpenProcess(windows.PROCESS_QUERY_INFORMATION, false, uint32(pid))
 	if err == nil {
+		sessionId, err := GetSessionId(uint32(pid))
+		if err != nil {
+			processes[pid].SessionId = INVALID_SESSION_ID
+		} else {
+			processes[pid].SessionId = sessionId
+		}
+
+		user, domain, err := GetProcessUser(uint32(pid))
+		if err == nil {
+			processes[pid].User = fmt.Sprintf("%s\\%s", domain, user)
+		}
+
 		if C.IsProcessElevated(C.HANDLE(hProcess)) == C.TRUE {
 			processes[pid].IsElevated = true
 		}

@@ -25,6 +25,8 @@ type Process struct {
 	IsSigned       bool
 	IsElevated     bool
 	Integrity      uint32
+	SessionId      int
+	User           string // in the format domain\\user
 	graphMu        sync.RWMutex
 	ProcessNetwork *Graph
 	StaticScanDone bool // represents the first static scan to avoid unnecessary extra scans. might also want a file scan history
@@ -38,36 +40,6 @@ type Process struct {
 	// these are the matched patterns that make up the total score
 	PatternMatches map[string]*PatternMatch // key: name of pattern
 	LastHeartbeat  int64                    // telemetry dll heartbeat
-}
-
-type ApiTelemetryIndex struct {
-	mu     sync.RWMutex
-	Events map[string]map[string]*ApiEvent // api -> id
-}
-
-/*
-type RegTelemetryCatalog struct {
-	RegPathTree   map[string][]*RegistryEvent // path
-	RegActionTree map[int][]*RegistryEvent    // action
-}*/
-
-type RegTelemetryIndex struct {
-	mu            sync.RWMutex
-	RegPathTree   map[string]map[string]*RegistryEvent // path -> id
-	RegActionTree map[string]map[string]*RegistryEvent // action -> id
-}
-
-/*
-	type FileTelemetryCatalog struct {
-		FilePathTree   map[string]map[string]map[int]*FileEvent // map[dir]map[filename]map[action]
-		FileActionTree map[int][]*FileEvent                     // search by action
-	}
-*/
-type FileTelemetryIndex struct {
-	mu sync.RWMutex
-	// dir -> filename -> action -> string encoded "unique" key
-	FilePathTree   map[string]map[string]map[string]map[string]*FileEvent
-	FileActionTree map[string]map[string]*FileEvent // action -> key
 }
 
 type Score struct {
