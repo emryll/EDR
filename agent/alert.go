@@ -7,6 +7,12 @@ import (
 	"github.com/go-toast/toast"
 )
 
+//?====================================================================+
+//?  This file implements alerts, and related functionality, including |
+//?    toast push notifications with options for further actions.      |
+//?====================================================================+
+
+// Create an alert entry. This does not yet send the alert to the end-user/operator.
 func CreateAlert(alert int, caption string, msg string, score int, pid int) Alert {
 	var capt string
 	if caption == "" {
@@ -17,6 +23,8 @@ func CreateAlert(alert int, caption string, msg string, score int, pid int) Aler
 	return Alert{Type: alert, Caption: capt, Message: msg, Score: score, Pid: pid, TimeStamp: time.Now().Unix()}
 }
 
+// Push an alert to the system. Do a.PushAlert(true) for
+// a graphical toast push notifications shown to the user.
 func (a Alert) PushAlert(msg ...bool) {
 	if len(msg) > 0 && msg[0] == true {
 		a.PushMessage()
@@ -58,7 +66,8 @@ func (a Alert) PushMessage() {
 	notification.Push()
 }
 
-// timerange in seconds. 0 to print entire history
+// Print previous alerts on the system, within a given timerange.
+// Set the timerange to 0 to portray full history (since startup)
 func PrintAlerts(timeRange int64) {
 	// since you append to end, alerts should be sorted incrementally (newest last)
 	for i := len(AlertHistory) - 1; i >= 0; i-- {
@@ -70,12 +79,16 @@ func PrintAlerts(timeRange int64) {
 	}
 }
 
+// Print the latest n alerts in history (since startup)
 func PrintLastAlerts(n int) {
 	for i := len(AlertHistory) - 1; i > len(AlertHistory)-1-n; i-- {
 		AlertHistory[i].Print(FLAG_PRINT_INFO)
 	}
 }
 
+// Portray details of an alert in the command line ui.
+// Args modify the information that gets printed.
+// Do a.Print(FLAG_PRINT_INFO) for a verbose print.
 func (a Alert) Print(args ...int) {
 	flags := make(map[int]bool)
 	if len(args) > 0 {
@@ -118,6 +131,8 @@ func (p *Process) IncrementScore(amount int, score ...int) {
 	p.CheckThresholds()
 }
 
+// Check the score thresholds of a process.
+// Take action if thresholds are bypassed..
 func (p *Process) CheckThresholds() {
 	if p.Score.StaticScore > SCORE_STATIC_ALERT_THRESHOLD {
 		msg := fmt.Sprintf("Static analysis score (%d) of process %d went over first threshold (%d)",
