@@ -449,7 +449,7 @@ func (reg *ObjectAccessRegistry) FindByObject(objectType Bitmask, interaction Bi
 func (entry *AccessEntry) RegisterInteraction() {
 	g_ObjectAccessRegistry.AddEntry(*entry, entry.Pid)
 
-	connections := entry.GetNewConnections()
+	connections := entry.GetNewConnections(entry.Pid)
 	if len(connections) == 0 {
 		return
 	}
@@ -460,12 +460,23 @@ func (entry *AccessEntry) RegisterInteraction() {
 	}
 }
 
-func (entry *AccessEntry) GetNewConnections() []uint32 {
+func (entry *AccessEntry) GetNewConnections(pid uint32) []uint32 {
 	entries := g_ObjectAccessRegistry.FindByObject((Bitmask)(entry.Object), entry.Type, entry.Name)
-	for _, ent := range entries {
-		//TODO: see if the connection is already registered in graph
-
+	if !entry.IsTrackedInteraction() {
+		return nil
 	}
+
+	var connections []uint32
+	graph := GetGraph(entry.Pid)
+	graph.mu.RLock()
+	defer graph.mu.RUnlock()
+
+	for _, ent := range entries {
+		if graph.Members[entry.Pid].Connections[ent.Pid] == nil {
+			connections = append(connections, ent.Pid)
+		}
+	}
+	return connections
 }
 
 func (entry *AccessEntry) GetWeight() int {
