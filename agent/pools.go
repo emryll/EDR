@@ -70,10 +70,16 @@ func (g *Graph) AddConnection(flags Bitmask, weight int, node1 uint32, node2 uin
 	defer g.mu.Unlock()
 	// make sure maps are allocated (avoid panic)
 	if g.Members[node1] == nil {
-		g.Members[node1].Connections = make(map[uint32]*Connection)
+		g.Members[node1] = &ProcessNode{
+			ProcessId:   node1,
+			Connections: make(map[uint32]*Connection),
+		}
 	}
 	if g.Members[node2] == nil {
-		g.Members[node2].Connections = make(map[uint32]*Connection)
+		g.Members[node2] = &ProcessNode{
+			ProcessId:   node2,
+			Connections: make(map[uint32]*Connection),
+		}
 	}
 
 	g.Members[node1].Connections[node2].Expand(flags, weight)
@@ -164,7 +170,7 @@ func (g *Graph) Merge(other *Graph, graphRegistry GraphRegistry) {
 
 	for pid, node := range smaller.Members {
 		larger.Members[pid] = node
-		SetGraph(pid, g)
+		SetGraph(pid, larger)
 	}
 	if graphRegistry != nil {
 		graphRegistry.Remove(smaller)
