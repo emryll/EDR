@@ -172,14 +172,51 @@ func (g *Graph) Merge(other *Graph, graphRegistry GraphRegistry) {
 }
 
 type Traversal struct {
-	Weight int
+	Weight uint32
 	Filter Bitmask
+}
+
+func (t Traversal) Passes(c *Connection) bool {
+	return c.Weight >= t.Weight && c.Type.HasFlags(t.Filter)
 }
 
 // Returns a set of subgraphs constructed with a traversal rule.
 // The filter determines which connections count as an edge.
 func (g *Graph) CreatePools(filter Traversal) []Pool {
-	//TODO: traverse graph with given rules
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
+	var (
+		visited = make(map[uint32]bool)
+		pools   []Pool
+	)
+
+	for pid := range g.Members {
+		if visited[pid] {
+			continue
+		}
+		// breadth first search
+		pool := make(Pool)
+		queue := []uint32{pid}
+		visited[pid] = true
+
+		for len(queue) > 0 {
+			curr := queue[0]
+			queue = queue[1:]
+
+			node := g.Members[curr]
+			pool[curr] = node
+
+			for outPid, conn := range node.Connections {
+				if !visited[outPid] && filter.Passes(conn) {
+					visited[outPid] = true
+					queue = append(queue, outPid)
+				}
+			}
+		}
+		pools = append(pools, pool)
+	}
+	return pools
 }
 
 func GetGraph(pid uint32) *Graph {
@@ -209,7 +246,7 @@ func (r GraphRegistry) Lookup(id int) *Graph {
 	return nil
 }
 
-// Create new empty graph and add it to registry.
+// Create new graph and add it to registry. Start empty or define nodes
 func CreateNewGraph(gr GraphRegistry, nodes ...*ProcessNode) *Graph {
 	var id int
 	for {
