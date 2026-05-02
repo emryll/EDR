@@ -1,0 +1,12 @@
+- name: Magic Mismatch (file drop)
+  description: A file was dropped, where the file extension does not match
+    the magic bytes. Indicates that file extension is fake, which is suspicious.
+  score: 20
+  category: ["evasion", "file drop", "initial vector", "loader"]
+  components:
+  - type: file
+    action: create
+    conditions:
+      magic_mismatch: true
+      has_scary_magic: true
+
