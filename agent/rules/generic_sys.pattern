@@ -1,0 +1,38 @@
+- name: Process from suspicious directory
+  description: Creating a process from a file in a suspicious directory.
+  author: emryll
+  score: 25
+  category: [generic]
+
+  components:
+  - type: callback
+    event: process_creation
+    conditions:
+      dir:
+      - "%temp%"
+      - "%appdata%"
+      - "%localappdata%"
+
+#============================================================================
+
+- name: Untrusted executable
+  description: Generic pattern, based on MOTW and certificate.
+  author: emryll
+  category: [generic]
+  score: 5
+
+  components:
+  - type: process
+    name: has_motw
+    conditions:
+      has_motw: true
+  - type: process
+    name: is_unsigned
+    optional: true
+    conditions:
+      is_signed: false
+
+  timeline: has_motw + is_unsigned
+  response: if is_unsigned then +5
+
+#============================================================================
