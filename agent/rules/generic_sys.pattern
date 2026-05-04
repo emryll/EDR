@@ -1,8 +1,10 @@
-- name: Process from suspicious directory
+#============================================================================
+
+- name: Create process from suspicious directory
   description: Creating a process from a file in a suspicious directory.
+  category: [generic]
   author: emryll
   score: 25
-  category: [generic]
 
   components:
   - type: callback
@@ -12,13 +14,14 @@
       - "%temp%"
       - "%appdata%"
       - "%localappdata%"
+      - "%downloads%"
 
 #============================================================================
 
-- name: Untrusted executable
+- name: Untrusted executable (MOTW, cert)
   description: Generic pattern, based on MOTW and certificate.
-  author: emryll
   category: [generic]
+  author: emryll
   score: 5
 
   components:
@@ -34,5 +37,71 @@
 
   timeline: has_motw + is_unsigned
   response: if is_unsigned then +5
+
+#============================================================================
+
+- name: Untrusted executable (directory)
+  description: The executable file of this process resides in an untrusted location.
+  category: [generic]
+  author: emryll
+  score: 15
+
+  components:
+  - type: process
+    conditions:
+      - "%windir%"
+      - "%programfiles%"
+      - "%programfiles(x86)%"
+  # programs should always be installed under windir or program files.
+
+#============================================================================
+
+- name: PS/cmd child process
+  description: Launching a cmd or powershell child process.
+    Typical for lower-quality C2 implants.  
+  category: [helper, c2, lineage]
+  author: emryll
+  score_parent: true
+  score: 40
+
+  components:
+  - type: process
+    conditions:
+      path: [powershell.exe, cmd.exe]
+      is_child: true
+
+  response: isolate and alert(message: "Suspicious shell child process!")
+
+#============================================================================
+
+- name: Fake svchost (process tree)
+  description: 
+  category: [lineage]
+  author: emryll
+  score: 70
+
+  components:
+  - type: process
+    conditions:
+      path: [svchost.exe]
+      parent_not: ["%windir%/System32/services.exe"]
+
+  response: kill family
+
+#============================================================================
+
+- name: Fake LSASS (process tree)
+  description:
+  category: [lsass, lineage]
+  author: emryll
+  score: 70
+
+  components:
+  - type: process
+    conditions:
+      path: [lsass.exe]
+      parent_not: ["%windir%/System32/wininit.exe"]
+
+  response: kill family
 
 #============================================================================
