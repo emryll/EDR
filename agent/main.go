@@ -4,14 +4,12 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 	"sync"
 	"time"
 	"unsafe"
 
-	yara "github.com/VirusTotal/yara-x/go"
 	"github.com/fatih/color"
 	"golang.org/x/sys/windows"
 )
@@ -24,27 +22,20 @@ import (
 //?     implements the main scan scheduler routines.                 |
 //?==================================================================+
 
-var ( // all global variables belong here
-	white            *Color
-	green            *Color
-	yellow           *Color
-	red              *Color
-	printLog         = true
-	logName          = "agent.log"
-	logFile          *os.File
-	logger           *log.Logger
-	logMu            sync.Mutex
-	writer           *DualWriter
-	processes        = make(map[int]*Process) // key: pid
-	mu               sync.Mutex               // is this necessary? i dont think so
-	printMu          sync.Mutex               // this makes sure a print is not interrupted
-	scannerMu        sync.Mutex
-	scanner          *yara.Scanner
-	rules            *yara.Rules
+var (
+	printMu sync.Mutex // this makes sure a print is not interrupted
+	white   = NewColor(color.New())
+	green   = NewColor(color.New(color.FgGreen, color.Bold))
+	yellow  = NewColor(color.New(color.FgYellow, color.Bold))
+	red     = NewColor(color.New(color.FgRed))
+	logger  = Logger{name: "agent.log"}
+
+	config           Config
+	scanner          *MemoryScanner
+	psTable          = ProcessTable{processes: make(map[int]*Process)}
 	malapi           map[string]MalApi
 	BehaviorPatterns []BehaviorPattern
-	AlertHistory     []Alert
-	AlertMu          sync.Mutex
+	Alerts           AlertHistory
 )
 
 func PeriodicScanScheduler(wg *sync.WaitGroup, ctx context.Context) {
@@ -77,7 +68,7 @@ func PeriodicScanScheduler(wg *sync.WaitGroup, ctx context.Context) {
 			return
 		case <-memoryScan.C:
 			go func() { // launch a goroutine to schedule memory scans
-				for pid, process := range processes {
+				for pid, process := range psTable.GetProcesses() {
 					if process.IsSigned {
 						tasks <- Scan{Pid: pid, Type: SCAN_MEMORYSCAN}
 					} else {
@@ -92,13 +83,11 @@ func PeriodicScanScheduler(wg *sync.WaitGroup, ctx context.Context) {
 
 		case <-heartbeat.C:
 			go func() { // launch a goroutine to check each heartbeat
-				for pid, process := range processes {
+				for pid, process := range psTable.GetProcesses() {
 					now := time.Now().Unix()
 					if process.LastHeartbeat < (now - MAX_HEARTBEAT_DELAY) {
 						TerminateProcess(pid)
-						mu.Lock()
-						delete(processes, pid)
-						mu.Unlock()
+						psTable.Delete(pid)
 					}
 				}
 			}()
@@ -176,7 +165,7 @@ func PeriodicScanHandler(wg *sync.WaitGroup, priorityTasks chan Scan, tasks chan
 					continue
 				}
 				// check if this process is allowed to have this
-				if IsAllowedUnbackedExecution(scan.Pid) {
+				if BehaviorRules.IsAllowedUnbackedExecution(scan.Pid) {
 					continue
 				}
 

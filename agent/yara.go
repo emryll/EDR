@@ -408,3 +408,10 @@ func ScanUnbackedMemory(pid uint32) (Result, error) {
 	}
 	return results, nil
 }
+
+func (m *MemoryScanner) Destroy() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.scanner.Destroy()
+	m.rules.Destroy()
+}

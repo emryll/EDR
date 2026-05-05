@@ -3,9 +3,12 @@ package main
 import (
 	"bytes"
 	"io"
+	"log"
+	"os"
 	"sync"
 	"unsafe"
 
+	yara "github.com/VirusTotal/yara-x/go"
 	"github.com/fatih/color"
 )
 
@@ -40,6 +43,31 @@ type Process struct {
 	// these are the matched patterns that make up the total score
 	PatternMatches map[string]*PatternMatch // key: name of pattern
 	LastHeartbeat  int64                    // telemetry dll heartbeat
+}
+
+type ProcessTable struct {
+	mu        sync.Mutex
+	processes map[int]*Process
+}
+
+// YARA-X wrapper for memory scans
+type MemoryScanner struct {
+	mu      sync.Mutex
+	rules   *yara.Rules
+	scanner *yara.Rules
+}
+
+type Logger struct {
+	mu     sync.Mutex
+	name   string
+	file   *os.File
+	logger *log.Logger
+	writer *DualWriter
+}
+
+type AlertHistory struct {
+	mu     sync.Mutex
+	alerts []Alert
 }
 
 type Score struct {
