@@ -1,0 +1,37 @@
+#===================================================================================
+
+- title: Fake smss.exe (file)
+  description: 
+  author: emryll
+  score: 80
+
+  components:
+    - type: process
+      name: wrong_path
+      conditions:
+        dir_not: ["%windir%/System32"]
+
+    - type: process
+      name: is_unsigned
+      conditions:
+        is_signed: false
+
+  timeline: is_unsigned or wrong_path
+  response: kill family
+
+#===================================================================================
+
+- title: Fake smss.exe (process tree)
+  description: 
+  category: [lineage]
+  author: emryll
+  score: 70
+
+  components:
+    - type: process
+      conditions:
+        parent_not: [system, N/A]
+
+  response: kill family
+
+#===================================================================================
