@@ -1,7 +1,9 @@
 #===================================================================================
 
 - title: Fake smss.exe (file)
-  description: 
+  description: Identifies a fake smss.exe process based on the file.
+    It should always be in System32 and be signed by Microsoft, which this is not.
+  category: [file]
   author: emryll
   score: 80
 
@@ -9,11 +11,13 @@
     - type: process
       name: wrong_path
       conditions:
+        path: [smss.exe]
         dir_not: ["%windir%/System32"]
 
     - type: process
       name: is_unsigned
       conditions:
+        path: [smss.exe]
         is_signed: false
 
   timeline: is_unsigned or wrong_path
@@ -22,7 +26,8 @@
 #===================================================================================
 
 - title: Fake smss.exe (process tree)
-  description: 
+  description: Identifies a fake smss.exe process based on the parent process.
+    For legitimate smss.exe parent is always system (PID 4) or N/A.
   category: [lineage]
   author: emryll
   score: 70
@@ -30,6 +35,7 @@
   components:
     - type: process
       conditions:
+        path: [smss.exe]
         parent_not: [system, N/A]
 
   response: kill family
