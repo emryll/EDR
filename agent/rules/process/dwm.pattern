@@ -1,0 +1,48 @@
+#=================================================================================
+
+- title: Fake dwm.exe (process tree)
+  description: Identifies a fake dwm.exe process based on parent process.
+    For legitimate dwm.exe the parent is always 
+  category: [lineage]
+  author: emryll
+  score: 70
+
+  components:
+    - type: process
+      conditions:
+        path: [dwm.exe]
+        parent_not:
+          - "%windir%/System32/winlogon.exe"
+          - "%windir%/SysWOW64/winlogon.exe"
+          - "%windir%/System32/wininit.exe"
+          - "%windir%/SysWOW64/wininit.exe"
+        is_signed: true
+        parent_is_signed: true
+
+  response: kill family
+
+#=================================================================================
+
+- title: Fake dwm.exe (file)
+  description:
+  category: [file]
+  author: emryll
+  score: 80
+
+  components:
+    - type: process
+      name: wrong_path
+      conditions:
+        path: [dwm.exe]
+        dir_not: ["%windir%/System32"]
+
+    - type: process
+      name: is_unsigned
+      conditions:
+        path: [dwm.exe]
+        is_signed: false
+
+  timeline: is_unsigned or wrong_path
+  response: kill family
+
+#=================================================================================
