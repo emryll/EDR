@@ -1,0 +1,21 @@
+#===========================================================
+
+- title: File drop in startup folder
+  description: Drop a file in the windows startup folder,
+    in order to achieve execution on startup. Commonly
+    used by lower-quality malware for persistence.
+  category: [persistence, file]
+  author: emryll
+  score: 35
+
+  components:
+    - type: file
+      action: create
+      conditions:
+        dir:
+          - "%appdata%/Roaming/Microsoft/Windows/Start Menu/Programs/Startup"
+
+  response: alert("New startup entry detected!")
+
+#===========================================================
+
