@@ -25,6 +25,9 @@ typedef struct {
 	QUEUE_ENTRY* queue;     // queue array
 } TELEMETRY_QUEUE;
 
+extern TELEMETRY_QUEUE g_StandardQueue;
+extern TELEMETRY_QUEUE g_CriticalQueue;
+
 void InitQueue(TELEMETRY_QUEUE*, const size_t);
 void DestroyQueue(TELEMETRY_QUEUE*);
 
