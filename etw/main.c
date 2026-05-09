@@ -49,14 +49,15 @@ BOOL WINAPI CtrlHandler(DWORD fdwCtrlType) {
 
 void EnableProviders() {
     //*================[ File System Events ]=========================
+ 
     ULONG64 fileKeywords = 
-        //KERNEL_FILE_KEYWORD_FILEIO |        // required base for most events
-        KERNEL_FILE_KEYWORD_FILENAME |      // path resolution
-        KERNEL_FILE_KEYWORD_CREATE |        // file create
-        KERNEL_FILE_KEYWORD_WRITE |         // file write
-        KERNEL_FILE_KEYWORD_DELETE_PATH |   // delete
+        //KERNEL_FILE_KEYWORD_FILEIO |  // required base for most events
+        KERNEL_FILE_KEYWORD_FILENAME |  // path resolution
+        KERNEL_FILE_KEYWORD_CREATE |    // file create
+        KERNEL_FILE_KEYWORD_WRITE |     // file write
+        KERNEL_FILE_KEYWORD_DELETE_PATH |         // delete
         KERNEL_FILE_KEYWORD_RENAME_SETLINK_PATH | // rename
-        KERNEL_FILE_KEYWORD_CREATE_NEW_FILE; // new file creation
+        KERNEL_FILE_KEYWORD_CREATE_NEW_FILE;      // new file creation
 
     /*if (!g_LightweightMode)  {
         fileKeywords |= KERNEL_FILE_KEYWORD_READ;
@@ -69,7 +70,7 @@ void EnableProviders() {
     }
     
     //*========================[ Registry Events ]========================
-    
+ 
     ULONG regKeywords = 
         KERNEL_REGISTRY_KEYWORD_CREATE_KEY |
         KERNEL_REGISTRY_KEYWORD_DELETE_KEY |
@@ -104,8 +105,6 @@ void EnableProviders() {
         printf("WARNING: Failed to enable Threat Intelligence provider (error %lu)\n", status);
     } 
 */
-
-
 }
 
 // The ETW consumer is started here
@@ -116,9 +115,11 @@ int main(int argc, char** argv) {
     }
 
     if (argc >= 2) {
-        pid = atoi(argv[1]);
-        TrackProcess(pid);
-        printf("Started tracking process %d\n", pid);
+        for (int i = 1; i < argc; i++) {
+          pid = atoi(argv[i]);
+          TrackProcess(pid);
+          printf("Started tracking process %d\n", pid);
+        }
     } else {
         trackAny = TRUE;
     }
@@ -149,11 +150,6 @@ int main(int argc, char** argv) {
     } else {
         printf("enabled SeSystemProfilePrivilege\n");
     }
-
-    printf("[debug] sizeof(FILE_EVENT): %d\n", sizeof(FILE_EVENT));
-    printf("[debug] sizeof(REG_EVENT): %d\n", sizeof(REG_EVENT));
-    printf("[debug] sizeof(TELEMETRY_HEADER): %d\n", sizeof(TELEMETRY_HEADER));
-    printf("[debug] sizeof(PARAMETER): %d\n", sizeof(PARAMETER));
 
     // set up ctrl+c to end session
     SetConsoleCtrlHandler(CtrlHandler, TRUE);
