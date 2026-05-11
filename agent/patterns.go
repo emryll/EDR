@@ -71,7 +71,7 @@ type ApiComponent struct {
 // This describes one event in the timeline. A file system event specifically.
 type FileComponent struct {
 	Name              string
-	Action            uint32
+	Action            ComponentAction // custom type for extra functionality
 	Conditions        []Condition
 	UniversalOverride *UniversalConditions
 	TimeMatters       bool
@@ -81,7 +81,7 @@ type FileComponent struct {
 // This describes one event in the timeline. A registry event specifically.
 type RegComponent struct {
 	Name              string
-	Action            uint32
+	Action            ComponentAction // custom type for extra functionality
 	Conditions        []Condition
 	UniversalOverride *UniversalConditions
 	TimeMatters       bool

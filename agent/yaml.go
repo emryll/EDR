@@ -493,6 +493,31 @@ func GetGroupConditionCatalog() (map[int]map[string]bool, error) {
 	return catalog, nil
 }
 
+// custom type to allow for the use of
+// scalar syntax (key: value) or
+// list syntax (key: [val1, val2, val3])
+type ComponentAction []string
+
+func (a *ComponentAction) UnmarshalYAML(node *yaml.Node) error {
+	switch node.Kind {
+	case yaml.ScalarNode:
+		var val string
+		if err := node.Decode(&val); err != nil {
+			return err
+		}
+		*a = ComponentAction{val}
+	case yaml.SequenceNode:
+		var vals []string
+		if err := node.Decode(&vals); err != nil {
+			return err
+		}
+		*a = ComponentAction(vals)
+	default:
+		return fmt.Errorf("expected scalar node or sequence node (is %s)", GetKind(node.Kind))
+	}
+	return nil
+}
+
 func IsPatternFile(path string) bool {
 	return filepath.Ext(path) == PATTERN_FILE_EXTENSION
 }
