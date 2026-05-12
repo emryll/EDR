@@ -1,0 +1,58 @@
+#=============================================================================================================
+
+- name: Untrusted executable (MOTW, cert)
+  description: Generic pattern, based on MOTW and certificate.
+  category: [generic]
+  author: emryll
+  score: 5
+
+  components:
+    - type: process
+      name: has_motw
+      conditions:
+        has_motw: true
+    - type: process
+      name: is_unsigned
+      optional: true
+      conditions:
+        is_signed: false
+
+  timeline: has_motw + is_unsigned
+  response: if is_unsigned then +5
+
+#=============================================================================================================
+
+- name: Untrusted executable (directory)
+  description: The executable file of this process resides in an untrusted location.
+  category: [generic]
+  author: emryll
+  score: 15
+
+  components:
+    - type: process
+      conditions:
+        dir_not:
+          - "%windir%"
+          - "%programfiles%"
+          - "%programfiles(x86)%"
+  # programs should always be installed under windir or program files.
+
+#=============================================================================================================
+
+- name: Create process from suspicious directory
+  description: Creating a process from a file in a suspicious directory.
+  category: [generic]
+  author: emryll
+  score: 25
+
+  components:
+  - type: callback
+    event: process_creation
+    conditions:
+      dir:
+        - "%temp%"
+        - "%appdata%"
+        - "%localappdata%"
+        - "%downloads%"
+
+#=============================================================================================================
