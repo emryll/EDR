@@ -1,0 +1,35 @@
+#============================================================================================
+
+- title: Suspicious executable file drop
+  description:
+  category: [ file ]
+  author: emryll
+  score: 15
+
+  components:
+    - type: file
+      action: create
+      conditions:
+        has_scary_magic: true
+        dir_not:
+          - "%programfiles%"
+          - "%programfiles(x86)%"
+          - "%windir%"
+
+  response: alert
+
+#============================================================================================
+
+- title: File drop with high entropy
+  description:
+  category: [ file ]
+  author: emryll
+  score: 5
+
+  components:
+    - type: file
+      action: create
+      conditions:
+        entropy_min: 7.5
+
+#============================================================================================
