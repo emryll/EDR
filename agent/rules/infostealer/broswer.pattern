@@ -152,3 +152,27 @@
   response: isolate and alert
 
 #=================================================================================================
+
+- title: Vivaldi Database access
+  description: Read Vivaldi's browser database on disk, which contains saved passwords,
+    cookies, browser history, etc. Very commonly done by infostealer malware. High confidence pattern.
+  category: [ infostealer, browser ]
+  author: emryll
+  score: 65
+
+  universal_conditions:
+    path_not:
+      - "%programfiles%/Vivaldi/Application/vivaldi.exe"
+      - "%appdata%/Local/Vivaldi/Application/vivaldi.exe" # default install location, unfortunately
+    is_signed: true
+
+  components:
+    - type: file
+      action: read
+      conditions:
+        dir:
+          - "%appdata%/Local/Vivaldi/User Data"
+
+  response: isolate and alert
+
+#=================================================================================================
