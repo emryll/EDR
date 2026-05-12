@@ -1,0 +1,74 @@
+#==================================================================================================
+
+- title: Classic Process Injection
+  description: Force a remote process to execute arbitrary code, appearing as them.
+    Simple, classic process injection. Very likely to be an amateur malware loader.
+  category: [ injection, evasion, loader ]
+  author: emryll
+  score: 65
+  
+  components:
+    - type: api
+      name: open_process
+      options: [ OpenProcess, NtOpenProcess ]
+      conditions:
+        desired_access: [ PROCESS_CREATE_THREAD | PROCESS_WRITE_VM ]
+      capture:
+        target_pid: parameter.TargetPid
+
+    - type: handle
+      object: process
+      name: has_handle
+      conditions:
+        access: [ PROCESS_CREATE_THREAD | PROCESS_WRITE_VM ]
+        pid: [ $target_pid ]
+      capture:
+        target_pid: parameter.Pid
+
+    - type: api
+      name: alloc_rwx_mem
+      options: [ remote_mem_alloc ]
+      conditions:
+        protection: [ RWX ]
+        pid: [ $target_pid ]
+      capture:
+        alloc_buf: parameter.Address
+
+    - type: api
+      name: alloc_rw_mem
+      options: [ remote_mem_alloc ]
+      conditions:
+        protection: [ RW ]
+        pid: [ $target_pid ]
+      capture:
+        alloc_buf: parameter.Address
+
+    - type: api
+      name: protect_rw_rx
+      options: [ protect_remote_mem ] 
+      conditions:
+        old_protection: [ RW ]
+        new_protection: [ RX ]
+        address: [ $alloc_buf ]
+        pid: [ $target_pid ]
+
+    - type: api
+      name: write_mem
+      options: [ WriteProcessMemory, NtWriteVirtualMemory ]
+      conditions:
+        address: [ $alloc_buf ]
+        pid: [ $target_pid ]
+
+    - type: api
+      name: create_thread
+      options: [ create_thread ]
+      conditions:
+        remote_op: true
+        address: [ $alloc_buf ]
+        pid: [ $target_pid ]
+
+  timeline: open_process OR has_handle -> alloc_rwx_mem OR (alloc_rw_mem -> protect_rw_rx)
+    -> write_mem -> create_thread
+  response: isolate and alert
+
+#==================================================================================================
