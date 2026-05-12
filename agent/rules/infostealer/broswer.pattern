@@ -21,3 +21,26 @@
   response: isolate and alert
 
 #=================================================================================================
+
+- title: Google Chrome Database access
+  description: Read Google Chrome's browser database on disk, which contains saved passwords,
+    cookies, browser history, etc. Very commonly done by infostealer malware. High confidence pattern.
+  category: [ infostealer, browser ]
+  author: emryll
+  score: 65
+
+  universal_conditions:
+    path_not: [ "%programfiles%/Google/Chrome/Application/chrome.exe" ]
+    is_signed: true
+
+  components:
+    - type: file
+      action: read
+      conditions:
+        dir:
+          - "%localappdata%/Google/Chrome/User Data"
+
+  response: isolate and alert
+
+#=================================================================================================
+
