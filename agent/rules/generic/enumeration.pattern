@@ -1,0 +1,55 @@
+#==========================================================================================================
+
+- title: Process Enumeration
+  description: Enumerate processes on the system. Very commonly done by malware. 
+    Also done by some benign software, but it's quite uncommon.
+  category: [enumeration, helper]
+  author: emryll
+  score: 15
+
+  components:
+    - type: api
+      options: [ CreateToolhelp32Snapshot ]
+      name: get_process_snapshot
+      conditions:
+        flags: [ TH32CS_SNAPPROCESS ]
+
+    - type: api
+      options: [ Process32First, Process32FirstW ]
+      name: get_first_process
+
+    - type: api
+      options: [ Process32Next, Process32NextW ]
+      name: get_next_process
+      required: false
+
+  timeline: get_process_snapshot -> get_first_process -> get_next_process
+
+#==========================================================================================================
+
+- title: Thread Enumeration
+  description: Enumerate threads on the system. Very commonly done by malware. 
+    Also done by some benign software.
+  category: [enumeration, helper]
+  author: emryll
+  score: 10
+
+  components:
+    - type: api
+      options: [ CreateToolhelp32Snapshot ]
+      name: get_thread_snapshot
+      conditions:
+        flags: [ TH32CS_SNAPTHREAD ]
+
+    - type: api
+      options: [ Thread32First ]
+      name: get_first_thread
+
+    - type: api
+      options: [ Thread32Next ]
+      name: get_next_thread
+      required: false
+
+  timeline: get_thread_snapshot -> get_first_thread -> get_next_thread
+
+#==========================================================================================================
