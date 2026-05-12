@@ -1,0 +1,18 @@
+#================================================================
+
+- title: CertPropSvc DLL hijack via registry write
+  description: Hijack a DLL loaded by CertPropSvc via registry write.
+  category: [persistence, registry]
+  author: emryll
+  score: 50
+
+  components:
+    - type: registry
+      conditions:
+        path:
+          - 'HKLM\SYSTEM\CurrentControlSet\Services\CertPropSvc\Parameters\ServiceDll'
+
+  response: alert and kill family
+
+#================================================================
+

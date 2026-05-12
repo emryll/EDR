@@ -1,0 +1,21 @@
+#============================================================
+
+- title: Scheduled task creation
+  description: Scheduled tasks are commonly used by malware
+    for persistence. Note that this pattern flags all new
+    scheduled tasks and hence can very well have false positives.
+    Scheduled tasks are also used by benign software, especially for updates.
+  category: [persistence, schtask]
+  author: emryll
+  score: 30
+
+  components:
+    - type: etw
+      provider: "Microsoft-Windows-TaskScheduler/Operational"
+      event: [100]
+      name: new_task
+
+  response: alert("Scheduled task creation detected!")
+
+#============================================================
+

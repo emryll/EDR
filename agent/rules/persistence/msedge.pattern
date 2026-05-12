@@ -1,0 +1,20 @@
+#========================================================================
+
+- title: Persistence via MS edge DLL load
+  description: Hijack a DLL loaded by MS edge by modifying the
+    DLL path in the registry. False positives are possible but unlikely.
+  category: [persistence, registry, msedge]
+  author: emryll
+  score: 30
+
+  components:
+    - type: registry
+      conditions:
+        path:
+          - 'HKLM\System\CurrentControlSet\Services\Winsock2\Parameters\NameSpace_Catalog5\Catalog_Entries64\000000000007\LibraryPath'
+
+  response: alert
+
+#========================================================================
+
+

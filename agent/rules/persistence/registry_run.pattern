@@ -1,0 +1,87 @@
+#==========================================================
+
+- title: Registry Run Key (user)
+  description: Create a run key, in order to gain execution after login.
+    Very commonly used by lower-quality malware for persistence.
+    Also used by benign software, so false-positives may happen.
+  category: [persistence, registry]
+  author: emryll
+  score: 30
+
+  components:
+    - type: registry
+      action: create_key
+      conditions:
+        path:
+          - 'HKCU\Software\Microsoft\Windows\CurrentVersion\Run'
+          - 'HKCU\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Run'
+          - 'HKCU\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer\Run'
+
+  response: if is_signed then -5
+    alert("New registry run key detected!")
+
+#==========================================================
+
+- title: Registry Run Key (HKLM)
+  description: Create a run key, in order to gain execution after login.
+    Very commonly used by lower-quality malware for persistence.
+    Also used by benign software, so false-positives may happen.
+  category: [persistence, registry]
+  author: emryll
+  score: 35
+
+  components:
+    - type: registry
+      action: create_key
+      conditions:
+        path:
+          - 'HKLM\Software\Microsoft\Windows\CurrentVersion\Run'
+          - 'HKLM\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Run'
+          - 'HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer\Run'
+
+  response: if is_signed then -5
+    alert("New registry run key detected!")
+
+#==========================================================
+
+- title: Registry RunOnce Key (user)
+  description: Create a run once key, in order to gain execution after login.
+    Commonly used by lower-quality malware for persistence.
+    Also used by benign software, so false-positives may happen.
+  category: [persistence, registry]
+  author: emryll
+  score: 35
+
+  components:
+    - type: registry
+      action: create_key
+      conditions:
+        path:
+          - 'HKCU\Software\Microsoft\Windows\CurrentVersion\RunOnce'
+          - 'HKCU\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\RunOnce'
+
+  response: if is_signed then -5
+    alert("New registry run once key detected!")
+
+#==========================================================
+
+- title: Registry RunOnce Key (HKLM)
+  description: Create a run once key, in order to gain execution after login.
+    Commonly used by lower-quality malware for persistence.
+    Also used by benign software, so false-positives may happen.
+  category: [persistence, registry]
+  author: emryll
+  score: 35
+
+  components:
+    - type: registry
+      action: create_key
+      conditions:
+        path:
+          - 'HKLM\Software\Microsoft\Windows\CurrentVersion\RunOnce'
+          - 'HKLM\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\RunOnce'
+
+  response: if is_signed then -5
+    alert("New registry run once key detected!")
+
+#==============================================

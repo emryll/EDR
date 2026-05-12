@@ -1,0 +1,25 @@
+#===============================================================
+
+- title: Crypto DLL hijack via registry write
+  description: It is possible to achieve persistence by
+    hijacking one of the crypto DLLs, modifying the path in
+    registry. This may also break the system if done stupidly.
+  category: [persistence, registry]
+  author: emryll
+  score: 35
+
+  components:
+    - type: registry
+      action:
+        - create_key
+        - set_value
+      conditions:
+        dir:
+          - 'HKLM\SOFTWARE\Microsoft\Cryptography\Defaults\Provider\'
+        name:
+          - 'Image Path'
+
+  response: alert
+
+#===============================================================
+
