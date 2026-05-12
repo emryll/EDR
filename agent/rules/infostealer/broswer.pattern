@@ -67,7 +67,7 @@
 #=================================================================================================
 
 - title: Microsoft Edge Database access
-  description: Read Google Chrome Beta's browser database on disk, which contains saved passwords,
+  description: Read Microsoft Edge's browser database on disk, which contains saved passwords,
     cookies, browser history, etc. Very commonly done by infostealer malware. High confidence pattern.
   category: [ infostealer, browser ]
   author: emryll
@@ -87,3 +87,26 @@
   response: isolate and alert
 
 #=================================================================================================
+
+- title: Brave Browser Database access
+  description: Read Brave's browser database on disk, which contains saved passwords,
+    cookies, browser history, etc. Very commonly done by infostealer malware. High confidence pattern.
+  category: [ infostealer, browser ]
+  author: emryll
+  score: 65
+
+  universal_conditions:
+    path_not: [ "%programfiles%/BraveSoftware/Brave-Browser/Application/brave.exe" ]
+    is_signed: true
+
+  components:
+    - type: file
+      action: read
+      conditions:
+        dir:
+          - "%localappdata%/BraveSoftware/Brave-Browser/User Data"
+
+  response: isolate and alert
+
+#=================================================================================================
+
