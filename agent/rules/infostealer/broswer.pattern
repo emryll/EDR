@@ -33,6 +33,7 @@
   universal_conditions:
     path_not: [ "%programfiles%/Google/Chrome/Application/chrome.exe" ]
     is_signed: true
+    cert_issuer_org: "DigiCert, Inc."
 
   components:
     - type: file
@@ -55,6 +56,7 @@
   universal_conditions:
     path_not: [ "%programfiles%/Google/Chrome Beta/Application/chrome.exe" ]
     is_signed: true
+    cert_issuer_org: "DigiCert, Inc."
 
   components:
     - type: file
