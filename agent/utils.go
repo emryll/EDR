@@ -995,6 +995,28 @@ func MatchDirectory(dir string, fullPath string, exact ...bool) (bool, error) {
 	return true, nil
 }
 
+// Check a filepath filter with wildcards.
+// Everything that filepath.Match() supports can be used.
+func MatchFullPath(filter string, path string) (bool, error) {
+	filterParts := splitPath(filter)
+	pathParts := splitPath(path)
+
+	if len(pathParts) != len(filterParts) {
+		return false, nil
+	}
+
+	for i, segment := range filterParts {
+		match, err := filepath.Match(segment, pathParts[i])
+		if err != nil {
+			return false, fmt.Errorf("invalid pattern segment \"%s\": %v", segment, err)
+		}
+		if !match {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
 // Splits a path into each subdir / file.
 // Works with both forward- and backslash paths.
 func splitPath(path string) []string {
