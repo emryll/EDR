@@ -79,6 +79,7 @@
   universal_conditions:
     path_not: [ "%programfiles(x86)%/Microsoft/Edge/Application/msedge.exe" ]
     is_signed: true
+    cert_issuer_org: Microsoft Corporation
 
   components:
     - type: file
@@ -101,6 +102,7 @@
   universal_conditions:
     path_not: [ "%programfiles%/BraveSoftware/Brave-Browser/Application/brave.exe" ]
     is_signed: true
+    cert_issuer_org: "DigiCert, Inc."
 
   components:
     - type: file
