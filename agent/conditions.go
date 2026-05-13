@@ -847,10 +847,15 @@ func CheckPathFilter(path string, wanted []string, denied []string, name bool) b
 	return true
 }
 
-func CheckDirFilter(path string, wanted []string, denied []string) bool {
+func CheckDirFilter(path string, wanted []string, denied []string, exact ...bool) bool {
 	var found bool
 	for _, dir := range wanted {
-		if dir == filepath.Dir(path) {
+		match, err := MatchDirectory(dir, path, exact)
+		if err != nil {
+			red.Log("[ERROR] ")
+			white.Log("Failed to check directory filter \"%s\": %v", dir, err)
+		}
+		if match {
 			found = true
 			break
 		}
@@ -859,7 +864,12 @@ func CheckDirFilter(path string, wanted []string, denied []string) bool {
 		return false
 	}
 	for _, dir := range denied {
-		if dir == filepath.Dir(path) {
+		match, err := MatchDirectory(dir, path, exact)
+		if err != nil {
+			red.Log("[ERROR] ")
+			white.Log("Failed to check directory filter \"%s\": %v", dir, err)
+		}
+		if match {
 			return false
 		}
 	}
