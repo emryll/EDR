@@ -1023,3 +1023,41 @@ func splitPath(path string) []string {
 	normalized := strings.ReplaceAll(path, "\\", "/")
 	return strings.FieldsFunc(normalized, func(r rune) bool { return r == '/' })
 }
+
+func normalizeHive(hive string) string {
+	switch strings.ToUpper(hive) {
+	case "HKEY_CLASSES_ROOT":
+		return "HKCR"
+	case "HKEY_CURRENT_USER":
+		return "HKCU"
+	case "HKEY_LOCAL_MACHINE":
+		return "HKLM"
+	}
+	return hive
+}
+
+func MatchRegFullPath(filter string, path string) (bool, error) {
+	path = strings.ToLower(path)
+	filter = strings.ToLower(filter)
+
+	filterParts := splitPath(filter)
+	pathParts := splitPath(path)
+
+	if len(pathParts) != len(filterParts) {
+		return false, nil
+	}
+
+	for i, segment := range filterParts {
+		if i == 0 {
+			segment = normalizeHive(segment)
+		}
+		match, err := filepath.Match(segment, pathParts[i])
+		if err != nil {
+			return false, err
+		}
+		if !match {
+			return false, nil
+		}
+	}
+	return true, nil
+}
