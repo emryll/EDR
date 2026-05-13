@@ -965,3 +965,39 @@ func GetSessionId(pid uint32) (uint32, error) {
 	err := windows.ProcessIdToSessionId(pid, &sessionID)
 	return sessionID, err
 }
+
+// Check a directory filter on a path. Allows for wildcards and related
+// functionality, in the format which filepath.Match() provides.
+// Set exact to true if you do not wish for subdirs to match, as they do by default.
+// Environment variables are expected to have been expanded at load-time.
+func MatchDirectory(dir string, fullPath string, exact ...bool) (bool, error) {
+	dirParts := splitPath(dir)
+	pathParts := splitPath(fullPath)
+
+	// for it to match, path must be deeper
+	if len(pathParts) <= len(dirParts) {
+		return false, nil
+	}
+
+	if len(exact) > 0 && exact[0] && len(pathParts) != len(dirParts)+1 {
+		return false, nil
+	}
+
+	for i, segment := range dirParts {
+		match, err := filepath.Match(segment, pathParts[i])
+		if err != nil {
+			return false, fmt.Errorf("invalid pattern segment \"%s\": %v", segment, err)
+		}
+		if !match {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+// Splits a path into each subdir / file.
+// Works with both forward- and backslash paths.
+func splitPath(path string) []string {
+	normalized := strings.ReplaceAll(path, "\\", "/")
+	return strings.FieldsFunc(normalized, func(r rune) bool { return r == '/' })
+}
