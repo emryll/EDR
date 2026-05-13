@@ -7,10 +7,10 @@
   author: emryll
   score: 65
 
-  universal_conditions:
-    path_not: [ "%programfiles%/Mozilla Firefox/firefox.exe" ]
-    is_signed: true
-    cert_issuer_org: "DigiCert, Inc."
+  exclusions:
+    - path: [ "%programfiles%/Mozilla Firefox/firefox.exe" ]
+      is_signed: true
+      cert_issuer_org: "DigiCert, Inc."
 
   components:
     - type: file
@@ -30,10 +30,10 @@
   author: emryll
   score: 65
 
-  universal_conditions:
-    path_not: [ "%programfiles%/Google/Chrome/Application/chrome.exe" ]
-    is_signed: true
-    cert_issuer_org: "DigiCert, Inc."
+  exclusions:
+    - path: [ "%programfiles%/Google/Chrome/Application/chrome.exe" ]
+      is_signed: true
+      cert_issuer_org: "DigiCert, Inc."
 
   components:
     - type: file
@@ -53,10 +53,10 @@
   author: emryll
   score: 65
 
-  universal_conditions:
-    path_not: [ "%programfiles%/Google/Chrome Beta/Application/chrome.exe" ]
-    is_signed: true
-    cert_issuer_org: "DigiCert, Inc."
+  exclusions:
+    - path: [ "%programfiles%/Google/Chrome Beta/Application/chrome.exe" ]
+      is_signed: true
+      cert_issuer_org: "DigiCert, Inc."
 
   components:
     - type: file
@@ -76,10 +76,10 @@
   author: emryll
   score: 65
 
-  universal_conditions:
-    path_not: [ "%programfiles(x86)%/Microsoft/Edge/Application/msedge.exe" ]
-    is_signed: true
-    cert_issuer_org: Microsoft Corporation
+  exclusions:
+    - path: [ "%programfiles(x86)%/Microsoft/Edge/Application/msedge.exe" ]
+      is_signed: true
+      cert_issuer_org: Microsoft Corporation
 
   components:
     - type: file
@@ -99,8 +99,8 @@
   author: emryll
   score: 65
 
-  universal_conditions:
-    path_not: [ "%programfiles%/BraveSoftware/Brave-Browser/Application/brave.exe" ]
+  exclusions:
+    path: [ "%programfiles%/BraveSoftware/Brave-Browser/Application/brave.exe" ]
     is_signed: true
     cert_issuer_org: "DigiCert, Inc."
 
@@ -122,9 +122,10 @@
   author: emryll
   score: 65
 
-  universal_conditions:
-    path_not: [ "%programfiles%/Zen Browser/zen.exe" ]
+  exclusions:
+    path: [ "%programfiles%/Zen Browser/zen.exe" ]
     is_signed: true
+    cert_issuer_org: "Asseco Data Systems S.A."
 
   components:
     - type: file
@@ -144,8 +145,8 @@
   author: emryll
   score: 65
 
-  universal_conditions:
-    path_not: [ "%programfiles%/Librewolf/librewolf.exe" ]
+  exclusions:
+    - path: [ "%programfiles%/Librewolf/librewolf.exe" ]
 
   components:
     - type: file
@@ -165,11 +166,11 @@
   author: emryll
   score: 65
 
-  universal_conditions:
-    path_not:
-      - "%programfiles%/Vivaldi/Application/vivaldi.exe"
-      - "%appdata%/Local/Vivaldi/Application/vivaldi.exe" # default install location, unfortunately
-    is_signed: true
+  exclusions:
+    - path:
+        - "%programfiles%/Vivaldi/Application/vivaldi.exe"
+        - "%appdata%/Local/Vivaldi/Application/vivaldi.exe" # default install location, unfortunately
+      is_signed: true
 
   components:
     - type: file
@@ -189,11 +190,11 @@
   author: emryll
   score: 65
 
-  universal_conditions:
-    path_not:
-      - "%programfiles%/Opera/Application/opera.exe"
-      - "%localappdata%/Programs/Opera/Application/opera.exe" # default install location, unfortunately
-    is_signed: true
+  exclusions:
+    - path:
+        - "%programfiles%/Opera/Application/opera.exe"
+        - "%localappdata%/Programs/Opera/Application/opera.exe" # default install location, unfortunately
+      is_signed: true
 
   components:
     - type: file
@@ -213,11 +214,11 @@
   author: emryll
   score: 65
 
-  universal_conditions:
-    path_not:
-      - "%programfiles%/Opera GX/Application/opera.exe"
-      - "%localappdata%/Programs/Opera GX/Application/opera.exe" # default install location, unfortunately
-    is_signed: true
+  exclusions:
+    - path:
+        - "%programfiles%/Opera GX/Application/opera.exe"
+        - "%localappdata%/Programs/Opera GX/Application/opera.exe" # default install location, unfortunately
+      is_signed: true
 
   components:
     - type: file
@@ -237,12 +238,12 @@
   author: emryll
   score: 65
 
-  universal_conditions:
-    path_not:
-      - "%programfiles%/WindowsApps/DuckDuckGo.DesktopBrowser_*/WindowsBrowser/DuckDuckGo.exe" # cursed install path...
-      - "%programfiles%/WindowsApps/DuckDuckGo.DesktopBrowser_*/WindowsBrowser/DuckDuckGo.Webview.exe" 
-    is_signed: true
-    cert_issuer_org: "DigiCert, Inc."
+  exclusions:
+    - path:
+        - "%programfiles%/WindowsApps/DuckDuckGo.DesktopBrowser_*/WindowsBrowser/DuckDuckGo.exe" # cursed install path...
+        - "%programfiles%/WindowsApps/DuckDuckGo.DesktopBrowser_*/WindowsBrowser/DuckDuckGo.Webview.exe" 
+      is_signed: true
+      cert_issuer_org: "DigiCert, Inc."
 
   components:
     - type: file
