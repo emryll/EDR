@@ -200,3 +200,27 @@
   response: isolate and alert
 
 #=================================================================================================
+
+- title: Opera GX Browser Database access
+  description: Read Opera GX's browser database on disk, which contains saved passwords,
+    cookies, browser history, etc. Very commonly done by infostealer malware. High confidence pattern.
+  category: [ infostealer, browser ]
+  author: emryll
+  score: 65
+
+  universal_conditions:
+    path_not:
+      - "%programfiles%/Opera GX/Application/opera.exe"
+      - "%localappdata%/Programs/Opera GX/Application/opera.exe" # default install location, unfortunately
+    is_signed: true
+
+  components:
+    - type: file
+      action: read
+      conditions:
+        dir:
+          - "%appdata%/Roaming/Opera Software/Opera GX Stable"
+
+  response: isolate and alert
+
+#=================================================================================================
