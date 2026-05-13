@@ -171,7 +171,31 @@
       action: read
       conditions:
         dir:
-          - "%appdata%/Local/Vivaldi/User Data"
+          - "%localappdata%/Vivaldi/User Data"
+
+  response: isolate and alert
+
+#=================================================================================================
+
+- title: Opera Browser Database access
+  description: Read Opera's browser database on disk, which contains saved passwords,
+    cookies, browser history, etc. Very commonly done by infostealer malware. High confidence pattern.
+  category: [ infostealer, browser ]
+  author: emryll
+  score: 65
+
+  universal_conditions:
+    path_not:
+      - "%programfiles%/Opera/Application/opera.exe"
+      - "%localappdata%/Programs/Opera/Application/opera.exe" # default install location, unfortunately
+    is_signed: true
+
+  components:
+    - type: file
+      action: read
+      conditions:
+        dir:
+          - "%appdata%/Roaming/Opera Software/Opera Stable"
 
   response: isolate and alert
 
