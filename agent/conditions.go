@@ -823,11 +823,16 @@ func CheckBitmaskFilter(mask uint32, wanted []uint32, denied []uint32) bool {
 func CheckPathFilter(path string, wanted []string, denied []string, name bool) bool {
 	var found bool
 	for _, p := range wanted {
-		if path == p {
+		if name && filepath.Base(path) == p {
 			found = true
 			break
 		}
-		if name && filepath.Base(path) == p {
+		match, err := MatchFullPath(p, path)
+		if err != nil {
+			red.Log("[ERROR] ")
+			white.Log("Failed to check path filter \"%s\": %v", p, err)
+		}
+		if match {
 			found = true
 			break
 		}
@@ -837,10 +842,16 @@ func CheckPathFilter(path string, wanted []string, denied []string, name bool) b
 	}
 	
 	for _, p := range denied {
-		if path == p {
+		if name && filepath.Base(path) == p {
 			return false
 		}
-		if name && filepath.Base(path) == p {
+
+		match, err := MatchFullPath(p, path)
+		if err != nil {
+			red.Log("[ERROR] ")
+			white.Log("Failed to check path filter \"%s\": %v", p, err)
+		}
+		if match {
 			return false
 		}
 	}
