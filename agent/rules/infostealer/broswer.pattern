@@ -10,6 +10,7 @@
   universal_conditions:
     path_not: [ "%programfiles%/Mozilla Firefox/firefox.exe" ]
     is_signed: true
+    cert_issuer_org: "DigiCert, Inc."
 
   components:
     - type: file
