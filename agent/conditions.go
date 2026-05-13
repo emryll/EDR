@@ -251,10 +251,10 @@ func (f RegistryFilter) Check(p *Process, event Event) bool {
 		path = regEvent.Path
 	}
 
-	if (path != "" && !CheckPathFilter(path, f.Path, f.PathNot, false)) {
+	if (path != "" && !CheckRegPathFilter(path, f.Path, f.PathNot, false)) {
 		return false
 	}
-	if (path != "" && !CheckDirFilter(path, f.PathDir, f.PathNot)) {
+	if (path != "" && !CheckRegDirFilter(path, f.PathDir, f.PathNot)) {
 		return false
 	}
 
@@ -879,6 +879,65 @@ func CheckDirFilter(path string, wanted []string, denied []string, exact ...bool
 		if err != nil {
 			red.Log("[ERROR] ")
 			white.Log("Failed to check directory filter \"%s\": %v", dir, err)
+		}
+		if match {
+			return false
+		}
+	}
+	return true
+}
+
+func CheckRegDirFilter(path string, wanted []string, denied []string, exact ...bool) bool {
+	var found bool
+	for _, dir := range wanted {
+		match, err := MatchRegDirectory(dir, path, exact)
+		if err != nil {
+			red.Log("[ERROR] ")
+			white.Log("Failed to check directory filter \"%s\": %v", dir, err)
+		}
+		if match {
+			found = true
+			break
+		}
+	}
+	if !found && len(wanted) > 0 {
+		return false
+	}
+	for _, dir := range denied {
+		match, err := MatchRegDirectory(dir, path, exact)
+		if err != nil {
+			red.Log("[ERROR] ")
+			white.Log("Failed to check directory filter \"%s\": %v", dir, err)
+		}
+		if match {
+			return false
+		}
+	}
+	return true
+}
+
+func CheckRegPathFilter(path string, wanted []string, denied []string) bool {
+	var found bool
+	for _, p := range wanted {
+		match, err := MatchRegFullPath(p, path)
+		if err != nil {
+			red.Log("[ERROR] ")
+			white.Log("Failed to check path filter \"%s\": %v", p, err)
+		}
+		if match {
+			found = true
+			break
+		}
+	}
+	if !found && len(wanted) > 0 {
+		return false
+	}
+	
+	for _, p := range denied {
+		match, err := MatchRegFullPath(p, path)
+		if err != nil {
+			red.Log("[ERROR] ")
+			white.Log("Failed to check path filter \"%s\": %v", p, err)
 		}
 		if match {
 			return false
