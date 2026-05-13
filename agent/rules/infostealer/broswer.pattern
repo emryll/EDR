@@ -237,6 +237,7 @@
       - "%programfiles%/WindowsApps/DuckDuckGo.DesktopBrowser_*/WindowsBrowser/DuckDuckGo.exe" # cursed install path...
       - "%programfiles%/WindowsApps/DuckDuckGo.DesktopBrowser_*/WindowsBrowser/DuckDuckGo.Webview.exe" 
     is_signed: true
+    cert_issuer_org: "DigiCert, Inc."
 
   components:
     - type: file
