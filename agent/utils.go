@@ -1053,7 +1053,37 @@ func MatchRegFullPath(filter string, path string) (bool, error) {
 		}
 		match, err := filepath.Match(segment, pathParts[i])
 		if err != nil {
-			return false, err
+			return false, fmt.Errorf("invalid pattern segment \"%s\": %v", segment, err)
+		}
+		if !match {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+func MatchRegDirectory(filter string, path string, exact ...bool) (bool, error) {
+	path = strings.ToLower(path)
+	filter = strings.ToLower(filter)
+
+	filterParts := splitPath(filter)
+	pathParts := splitPath(path)
+
+	if len(pathParts) >= len(filterParts) {
+		return false, nil
+	}
+
+	if len(exact) > 0 && exact[0] && len(pathParts) != len(filterParts)+1 {
+		return false, nil
+	}
+
+	for i, segment := range filterParts {
+		if i == 0 {
+			segment = normalizeHive(segment)
+		}
+		match, err := filepath.Match(segment, pathParts[i])
+		if err != nil {
+			return false, fmt.Errorf("invalid pattern segment \"%s\": %v", segment, err)
 		}
 		if !match {
 			return false, nil
