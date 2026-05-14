@@ -799,10 +799,10 @@ func (f ObjectWaitFilter) Check(p *Process, event Event) bool {
 
 //*=================================[ Generic utils ]=========================================
 
-func CheckBitmaskFilter(mask uint32, wanted []uint32, denied []uint32) bool {
+func CheckBitmaskFilter(mask Bitmask, wanted []Bitmask, denied []Bitmask) bool {
 	var found bool
 	for _, flag := range wanted {
-		if mask&flag != 0 {
+		if mask.HasFlags(flag) {
 			found = true
 			break
 		}
@@ -812,7 +812,7 @@ func CheckBitmaskFilter(mask uint32, wanted []uint32, denied []uint32) bool {
 	} 
 
 	for _, flag := range denied {
-		if mask&flag != 0 {
+		if mask.HasFlags(flag) {
 			return false
 		}
 	}
