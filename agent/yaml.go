@@ -264,6 +264,10 @@ func parseConditions(node *yaml.Node, group int) ([]Condition, error) {
 		if err := node.Decode(set); err != nil {
 			return nil, err
 		}
+		// Expand environment variables in rules
+		if filter, yes := set.(NeedsCompiling); yes {
+			filter.Compile()
+		}
 		conditions = append(conditions, set)
 	}
 	return conditions, nil
@@ -551,6 +555,7 @@ type Bitmask uint32 // custom type allowing for string enums in yaml
 var envVarRe = regexp.MustCompile(`%([^%]+)%`)
 
 func ExpandEnvironmentVars(path string) string {
+	path = NormalizePath(path)
 	return envVarRe.ReplaceAllStringFunc(path, func(match string) string {
 		name := match[1 : len(match)-1]
 		if val := os.Getenv(name); val != "" {
@@ -560,16 +565,22 @@ func ExpandEnvironmentVars(path string) string {
 	})
 }
 
+// helper interface for environment variables
 type NeedsCompiling interface {
-	Compile() error
+	Compile()
 }
 
-func (f *FileFilter) Compile() error {
-	//TODO: compile dir rules
-	//TODO: compile path rules
-}
-
-func (r *RegistryFilter) Compile() error {
-	//TODO: compile dir rules
-	//TODO: compile path rules
+func (f *FileFilter) Compile() {
+	for i, path := range f.Path {
+		f.Path[i] = ExpandEnvironmentVars(path)
+	}
+	for i, path := range f.PathNot {
+		f.PathNot[i] = ExpandEnvironmentVars(path)
+	}
+	for i, dir := range f.Dir {
+		f.Dir[i] = ExpandEnvironmentVars(dir)
+	}
+	for i, dir := range f.DirNot {
+		f.DirNot[i] = ExpandEnvironmentVars(dir)
+	}
 }
