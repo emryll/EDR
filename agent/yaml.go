@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -546,3 +547,29 @@ func (b *Bool) UnmarshalYAML(node *yaml.Node) error {
 }
 
 type Bitmask uint32 // custom type allowing for string enums in yaml
+
+var envVarRe = regexp.MustCompile(`%([^%]+)%`)
+
+func ExpandEnvironmentVars(path string) string {
+	return envVarRe.ReplaceAllStringFunc(path, func(match string) string {
+		name := match[1 : len(match)-1]
+		if val := os.Getenv(name); val != "" {
+			return NormalizePath(val)
+		}
+		return match
+	})
+}
+
+type NeedsCompiling interface {
+	Compile() error
+}
+
+func (f *FileFilter) Compile() error {
+	//TODO: compile dir rules
+	//TODO: compile path rules
+}
+
+func (r *RegistryFilter) Compile() error {
+	//TODO: compile dir rules
+	//TODO: compile path rules
+}

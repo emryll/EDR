@@ -1017,10 +1017,14 @@ func MatchFullPath(filter string, path string) (bool, error) {
 	return true, nil
 }
 
+func NormalizePath(path string) string {
+	return strings.ReplaceAll(path, "\\", "/")
+}
+
 // Splits a path into each subdir / file.
 // Works with both forward- and backslash paths.
 func splitPath(path string) []string {
-	normalized := strings.ReplaceAll(path, "\\", "/")
+	normalized := NormalizePath(path)
 	return strings.FieldsFunc(normalized, func(r rune) bool { return r == '/' })
 }
 
