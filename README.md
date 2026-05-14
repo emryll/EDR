@@ -2,11 +2,11 @@
 
 &nbsp;
 
-**Genesis EDR is an open-source Endpoint Detection and Response system for x64 Windows.** Designed for security researchers and learners; it serves as an **educational tool** and case study, but can also be used to test red team tooling.
+**Genesis EDR is an open-source Endpoint Detection and Response system for x64 Windows.** Designed for security researchers and learners; it serves as an **educational tool** and case study, but can also be used to test red team tooling. Note that commercial use is not permitted (see license).
 
 You can find **detailed documentation** about the architectural design and implementation [here](https://emryll.gitbook.io/byte4byte/genesis).
 
->The project is currently in **early development**, alpha version is set to release in February/March 2026.
+>The project is currently in **early development**, alpha version will hopefully be released in the summer of 2026.
 
 ## Overview
 The system runs off of patterns in a custom YAML-based DSL to describe behavior as a timeline of events. In addition YARA rules are used for YARA-X scans of memory and files.
@@ -47,15 +47,12 @@ A sort of **swiss-cheese model** is implemented; there are various different tes
 	- Heartbeat mechanisms to detect loss of critical components, particularly the ETW consumer or a telemetry DLL.
 	- IAT and inline hook detection, which includes monitoring of own hooks.
 	- Integrity checks of module memory via hashing
+- **Process containment**
+	- Detections are not very useful if the malware keeps executing.
+	- The system aims to group linked processes together, keep track of registered persistence, and tracks dropped files. When a detection is made, these are cleaned up to stop the malware.
+	- In future versions process isolation mechanisms will be implemented for restricting processes as a softer response to suspicious behavior.
 
 ## How to use
 > **Disclaimer!** Currently the project is a **work-in-progress**. It is **not yet ready for use** as a whole system. _There are many functional parts at this point, so parts of the system can be tested, but you will need to know what you're doing
 
-To get started using the system, clone this repo and run the installer. To build from source, you will need C, C++, and Golang compilers and OpenSSL installed on your machine.
-```bash
-git clone https://github.com/emryll/edr.git
-cd ./edr
-go run installer.go
-cd ./build
-./agent.exe
-```
+To get started using the system, clone this repo and run the installer. To build from source, you will need C, C++, and Golang compilers, as well as OpenSSL installed on your machine.
