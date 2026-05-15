@@ -35,6 +35,7 @@ type BehaviorPattern struct {
 	TimeRange           int
 	UniversalConditions *UniversalConditions
 	Components          []Component
+	Exclusions          []ProcessFilter
 	Timeline            string
 }
 
