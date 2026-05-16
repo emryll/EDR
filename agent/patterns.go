@@ -106,16 +106,9 @@ type Condition interface {
 }
 
 type UniversalConditions struct {
-	Parent    []string `yaml:"parent"`
-	ParentNot []string `yaml:"parent_not"`
-	//TODO: child
-	Process *ProcessFilter `yaml:"host_process"`
-	//IsRemote  	 bool
-	//? ^for this one you need to implement calling thread collection into all telemetry packets (add tid field to header)
-	SessionId    []uint32 `yaml:"session_id"`
-	SessionIdNot []uint32 `yaml:"session_id_not"`
-	User         []string `yaml:"user"`
-	UserNot      []string `yaml:"user_not"`
+	Process  *ProcessFilter  `yaml:"host_process"`
+	Parent   []ProcessFilter `yaml:"parent_process"`
+	Children []ProcessFilter `yaml:"child_process"`
 }
 
 // condition set for generic 32-bit flags
