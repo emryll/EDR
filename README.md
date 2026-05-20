@@ -2,18 +2,19 @@
 
 &nbsp;
 
-**Genesis EDR is an open-source Endpoint Detection and Response system for x64 Windows.** Designed for security researchers and learners; it serves as an **educational tool** and case study, but can also be used to test red team tooling. Note that commercial use is not permitted (see license).
+**Genesis EDR is an open-source Endpoint Detection and Response system for x64 Windows.** Designed for security researchers and learners; it serves as an **educational tool**, but also a **playground for experimentation** and testing. Note that commercial use is not permitted (see license).
 
-You can find **detailed documentation** about the architectural design and implementation [here](https://emryll.gitbook.io/byte4byte/genesis).
+You can find **detailed documentation** about the architectural design and high-level implementation [here](https://emryll.gitbook.io/byte4byte/genesis). For implementation details, just read the code. The ideas are largely documented in comments, unless it's obvious.
 
 >The project is currently in **early development**, alpha version will hopefully be released in the summer of 2026.
 
 ## Scope
-- A test **environment for experimenting** with offensive security.
+- A **playground for experimenting** with endpoint security.
 - Lets you test tooling and see **in-detail** what caused **detections**.
 - Provides a **concrete example** of how security software detects malware.
-- **NOT** intended for 24/7 or commercial use.
+- Lets you define new detections on arbitrary behavior.
 - **NOT** expected to catch **APT-level** malware.
+- **NOT** intended for 24/7 or commercial use.
 - **NOT** a production-ready EDR solution.
 
 ## Overview
