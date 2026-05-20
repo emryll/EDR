@@ -9,11 +9,11 @@ You can find **detailed documentation** about the architectural design and imple
 >The project is currently in **early development**, alpha version will hopefully be released in the summer of 2026.
 
 ## Scope
-- A test environment for experimenting with offensive security.
-- Let's you test tooling and see in-detail what caused detections.
-- Provides a concrete example of how security software detects malware.
+- A test **environment for experimenting** with offensive security.
+- Lets you test tooling and see **in-detail** what caused **detections**.
+- Provides a **concrete example** of how security software detects malware.
 - **NOT** intended for 24/7 or commercial use.
-- **NOT** expected to catch APT-level malware.
+- **NOT** expected to catch **APT-level** malware.
 - **NOT** a production-ready EDR solution.
 
 ## Overview
