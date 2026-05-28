@@ -1,6 +1,7 @@
 #include <windows.h>
 #include <stdio.h>
 #include "hook.h"
+#include "queue.h"
 
 HANDLE hTelemetry = NULL;
 HANDLE hHeartbeat = NULL;
