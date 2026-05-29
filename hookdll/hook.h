@@ -49,57 +49,6 @@ extern Module TrackedModules[];
 extern const size_t HookListSize;
 extern const size_t NumTrackedModules;
 
-typedef struct {
-    DWORD pid;
-    char  command[64];
-    char  arg[64];
-} COMMAND;
-
-typedef struct {
-    DWORD pid;
-    char  Heartbeat[64];
-} HEARTBEAT;
-
-typedef enum {
-    TM_TYPE_EMPTY_VALUE    = 0, // so agent does not parse empty values
-    TM_TYPE_API_CALL       = 1,
-    TM_TYPE_FILE_EVENT     = 2,
-    TM_TYPE_REG_EVENT      = 3,
-    TM_TYPE_TEXT_INTEGRITY = 4,
-    TM_TYPE_IAT_INTEGRITY = 5,
-    TM_TYPE_GENERIC_ALERT = 6,
-} TELEMETRY_TYPE;
-
-typedef enum {
-    API_ARG_TYPE_EMPTY, // so agent does not parse empty values
-    API_ARG_TYPE_DWORD,
-    API_ARG_TYPE_ASTRING,
-    API_ARG_TYPE_WSTRING,
-    API_ARG_TYPE_BOOL,
-    API_ARG_TYPE_PTR
-} API_ARGTYPE;
-
-//TODO make this dynamic too, not union
-// union to describe an arg and its type (for parsing)
-typedef struct {
-    API_ARGTYPE type;
-    union {
-        DWORD   dwValue;
-        char    astrValue[260];
-        wchar_t wstrValue[260];
-        BOOL    boolValue;
-        PVOID   ptrValue;
-    } arg;
-} API_ARG;
-
-// api call telemetry packets' first part after header
-typedef struct {
-    DWORD    tid;
-    char     dllName[60];
-    char     funcName[60];
-    DWORD    argCount;
-} API_CALL_HEADER;
-
 // file system action types
 typedef enum {
     FILE_ACTION_CREATE,
@@ -107,16 +56,6 @@ typedef enum {
     FILE_ACTION_REMOVE,
     FILE_ACTION_MOVE,
 } FILE_ACTION;
-
-typedef struct {
-    DWORD   pid; // 0->4
-    DWORD   tid; // 4->8
-    DWORD   dataSize; // 8->12
-    time_t  timeStamp; // 12->20
-    uint8_t type; // 20->21
-    uint8_t eventId; // 21->22
-} __attribute__((packed)) TELEMETRY_HEADER;
-
 typedef struct {
     char funcName[64];
     LPVOID address; // this is the invalid address IAT is pointing to
