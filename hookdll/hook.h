@@ -1,30 +1,12 @@
 #ifndef HOOK_H
 #define HOOK_H
 
-#define STATUS_ACCESS_DENIED 0xC0000022
-#define PE_SIGNATURE 0x4550
-#define SHA256_DIGEST_LENGTH 32
-#define MAX_API_ARGS 10 
-#define HEARTBEAT_INTERVAL 20000
-#define INTEGRITY_CHECK_INTERVAL 30000
-#define COUNTER_LOOP_SLEEP_INTERVAL 10000
-#define HOOK_CHECK_INTERVAL      60000
-#define IAT_CHECK_INTERVAL      60000
-#define FUNC_HASH_LENGTH 256 // how many bytes to hash from start of function
-#define EVP_MAX_MD_SIZE 64
 #define DLL_NAME "hook.dll"
 
-#define HEARTBEAT_PIPE_NAME "\\\\.\\pipe\\vgrd_hb"
-#define TELEMETRY_PIPE_NAME "\\\\.\\pipe\\vgrd_tm"
-#define COMMANDS_PIPE_NAME "\\\\.\\pipe\\vgrd_cmd"
-
 #include <windows.h>
-#include <winbase.h>
 #include <winternl.h>
 #include <ntdef.h>
-#include <tlhelp32.h>
-#include <processthreadsapi.h> // for QUEUE_USER_APC_FLAGS
-#include <openssl/evp.h>
+#include <winbase.h>
 
 typedef struct {
     LPCSTR funcName;
@@ -41,9 +23,6 @@ typedef struct {
     unsigned char textHash[EVP_MAX_MD_SIZE];
 } Module;
 
-extern HANDLE hHeartbeat;
-extern HANDLE hTelemetry;
-extern HANDLE hCommands;
 extern HookEntry HookList[];
 extern Module TrackedModules[];
 extern const size_t HookListSize;
@@ -56,68 +35,12 @@ typedef enum {
     FILE_ACTION_REMOVE,
     FILE_ACTION_MOVE,
 } FILE_ACTION;
-typedef struct {
-    char funcName[64];
-    LPVOID address; // this is the invalid address IAT is pointing to
-} IAT_MISMATCH;
 
-typedef struct {
-    size_t descSize;
-    char* description;
-} GENERIC_ALERT;
-
-//? instead of using an union, be more memory efficient and send only what you need
-//? in a different struct which you can just memcpy() into a buffer after the header
-/*
-typedef struct {
-    TELEMETRY_HEADER header; //24B
-    union {
-        API_CALL   apiCall;
-        FILE_EVENT fileEvent;
-        REG_EVENT  regEvent;
-        TEXT_CHECK textCheck;
-        FUNC_CHECK funcCheck;
-    } data;
-} TELEMETRY;
-*/
-// utils.c
-//void GetHookIntegrityTelemetryPacket(TELEMETRY*, int*, int);
-//void GetHookBaseTelemetryPacket(TELEMETRY*, LPCSTR, LPCSTR);
-//void GetTextTelemetryPacket(TELEMETRY*, char*, BOOL);
-//void FillEmptyArgs(TELEMETRY*, int);
-PIMAGE_IMPORT_DESCRIPTOR GetIatImportDescriptor(LPVOID);
-size_t GetTelemetryPacketSize(DWORD, size_t);
-TELEMETRY_HEADER GetTelemetryHeader(DWORD, size_t);
-API_CALL_HEADER GetApiCallHeader(LPCSTR, LPCSTR, size_t);
-TEXT_CHECK GetTextIntegrityPacket(LPCSTR, BOOL);
-BYTE* GetGenericAlertPacket(LPCSTR);
-void SendDllInjectionAlert();
-
-HANDLE InitializeComms();           // ipc.c
-void WaiterThread(); // ipc.c
 int FillFunctionHash(unsigned char*, LPVOID, size_t);     // utils.c
 int InitializeHookList();           // iathook.c
 int InitializeIatHooksByHookList(); // iathook.c
 void InitializeModuleList(); // iathook.c
-
-// tampering.c
-void heartbeat(HANDLE);
-//int* CheckHookIntegrity(int*);
-BOOL CheckTextSectionIntegrity(unsigned char*, HMODULE);
-void HashTextSection(HMODULE, unsigned char*, unsigned int*);
-//void PerformIntegrityChecks(HMODULE, HMODULE, HMODULE);
-void CheckIatIntegrity(LPVOID);
-
-// utils.cpp
-#ifdef __cplusplus
-extern "C" {
-#endif
-void InitializeHookMap();
-HookEntry* FindHookEntry(LPCSTR);
-#ifdef __cplusplus
-}
-#endif
-
+                             //
 //*=============================[ API hooks ]========================================
 
 //? this is the index into HookList; the enums must be in correct order
